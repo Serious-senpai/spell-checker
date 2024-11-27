@@ -1,8 +1,8 @@
 #include <standard.hpp>
 
-std::vector<std::vector<std::string>> read()
+std::vector<std::vector<std::string>> read(const std::string &wordlist_path)
 {
-    std::fstream input("wordlist.txt", std::ios::in);
+    std::fstream input(wordlist_path, std::ios::in);
     std::vector<std::string> wordlist;
     std::string word;
     while (input >> word)
@@ -22,8 +22,36 @@ std::vector<std::vector<std::string>> read()
     return words_by_syllable;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    const auto words_by_syllable = read();
+    std::string wordlist = "data/wordlist.txt", corpus = "data/corpus.txt";
+    for (int i = 1; i < argc; i++)
+    {
+        std::string arg(argv[i]);
+        if (arg == "--wordlist")
+        {
+            if (i + 1 < argc)
+            {
+                wordlist = argv[i + 1];
+            }
+            else
+            {
+                throw std::out_of_range("Expected path to wordlist file after \"--wordlist\"");
+            }
+        }
+        else if (arg == "--corpus")
+        {
+            if (i + 1 < argc)
+            {
+                corpus = argv[i + 1];
+            }
+            else
+            {
+                throw std::out_of_range("Expected path to corpus file after \"--corpus\"");
+            }
+        }
+    }
+
+    const auto words_by_syllable = read(wordlist);
     return 0;
 }
