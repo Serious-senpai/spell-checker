@@ -1,49 +1,31 @@
-#include <standard.hpp>
-
-std::vector<std::vector<std::string>> read(const std::string &wordlist_path)
-{
-    std::fstream input(wordlist_path, std::ios::in);
-    std::vector<std::string> wordlist;
-    std::string word;
-    while (input >> word)
-    {
-        std::replace(word.begin(), word.end(), '_', ' ');
-        wordlist.push_back(word);
-    }
-
-    std::vector<std::vector<std::string>> words_by_syllable; // starting from 0 (1 syllable)
-    for (const auto &word : wordlist)
-    {
-        auto syllable = std::count(word.begin(), word.end(), ' ');
-        words_by_syllable.resize(syllable + 1);
-        words_by_syllable[syllable].push_back(word);
-    }
-
-    return words_by_syllable;
-}
+#include <config.hpp>
+#include <distance.hpp>
 
 int main(int argc, char **argv)
 {
-    std::string wordlist = "data/wordlist.txt", corpus = "data/corpus.txt";
+    EnableUTF8Console _lifespan;
+    std::ios_base::sync_with_stdio(false);
+
+    char default_wordlist_path[] = "data/wordlist.txt", default_corpus_path[] = "data/corpus.txt";
+    char *wordlist_path = default_wordlist_path, *corpus_path = default_corpus_path;
     for (int i = 1; i < argc; i++)
     {
-        std::string arg(argv[i]);
-        if (arg == "--wordlist")
+        if (std::strcmp(argv[i], "--wordlist") == 0)
         {
-            if (i + 1 < argc)
+            if (++i < argc)
             {
-                wordlist = argv[i + 1];
+                wordlist_path = argv[i];
             }
             else
             {
                 throw std::out_of_range("Expected path to wordlist file after \"--wordlist\"");
             }
         }
-        else if (arg == "--corpus")
+        else if (std::strcmp(argv[i], "--corpus") == 0)
         {
-            if (i + 1 < argc)
+            if (++i < argc)
             {
-                corpus = argv[i + 1];
+                corpus_path = argv[i];
             }
             else
             {
@@ -52,6 +34,25 @@ int main(int argc, char **argv)
         }
     }
 
-    const auto words_by_syllable = read(wordlist);
+    const auto wordlist = import_wordlist(wordlist_path);
+    int max_tokens_per_word = 0;
+    for (auto &word : wordlist)
+    {
+        max_tokens_per_word = std::max<int>(max_tokens_per_word, std::count(word.begin(), word.end(), ' ') + 1);
+    }
+
+    const auto variants = delete_variants(wordlist);
+
+    std::string input;
+    std::cout << "Enter a Vietnamese string>" << std::flush;
+    std::getline(std::cin, input);
+
+    std::cout << "Received \"" << input << "\"" << std::endl;
+    for (auto &c : input)
+    {
+        std::cout << std::hex << short(c) << " ";
+    }
+    std::cout << std::endl;
+
     return 0;
 }

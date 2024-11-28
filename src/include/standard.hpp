@@ -5,6 +5,8 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstring>
+#include <execution>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -28,7 +30,6 @@
 #include <windows.h>
 #elif defined(__linux__)
 #include <unistd.h>
-#include <sys/ioctl.h>
 #endif
 
 #include <cxxabi.h>
@@ -64,8 +65,8 @@ namespace std
         return min(_x, min(_y, _z, _a));
     }
 
-    template <typename _ForwardIterator>
-    void __list_elements(ostream &stream, const _ForwardIterator &_begin, const _ForwardIterator &_end)
+    template <typename CharT, typename _ForwardIterator>
+    void __list_elements(basic_ostream<CharT> &stream, const _ForwardIterator &_begin, const _ForwardIterator &_end)
     {
         for (auto iter = _begin; iter != _end; iter++)
         {
@@ -77,8 +78,8 @@ namespace std
         }
     }
 
-    template <typename T, std::size_t N>
-    ostream &operator<<(ostream &stream, const array<T, N> &_v)
+    template <typename CharT, typename T, std::size_t N>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const array<T, N> &_v)
     {
         stream << "[";
         __list_elements(stream, _v.begin(), _v.end());
@@ -87,8 +88,8 @@ namespace std
         return stream;
     }
 
-    template <typename T>
-    ostream &operator<<(ostream &stream, const vector<T> &_v)
+    template <typename CharT, typename T>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const vector<T> &_v)
     {
         stream << "[";
         __list_elements(stream, _v.begin(), _v.end());
@@ -97,8 +98,8 @@ namespace std
         return stream;
     }
 
-    template <typename T>
-    ostream &operator<<(ostream &stream, const list<T> &_l)
+    template <typename CharT, typename T>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const list<T> &_l)
     {
         stream << "[";
         __list_elements(stream, _l.begin(), _l.end());
@@ -107,8 +108,8 @@ namespace std
         return stream;
     }
 
-    template <typename T, typename Compare, typename Alloc>
-    ostream &operator<<(ostream &stream, const set<T, Compare, Alloc> &_s)
+    template <typename CharT, typename T, typename Compare, typename Alloc>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const set<T, Compare, Alloc> &_s)
     {
         stream << "{";
         __list_elements(stream, _s.begin(), _s.end());
@@ -117,8 +118,8 @@ namespace std
         return stream;
     }
 
-    template <typename T, typename Compare, typename Alloc>
-    ostream &operator<<(ostream &stream, const multiset<T, Compare, Alloc> &_s)
+    template <typename CharT, typename T, typename Compare, typename Alloc>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const multiset<T, Compare, Alloc> &_s)
     {
         stream << "{";
         __list_elements(stream, _s.begin(), _s.end());
@@ -127,8 +128,8 @@ namespace std
         return stream;
     }
 
-    template <typename T1, typename T2, typename Compare, typename Alloc>
-    ostream &operator<<(ostream &stream, const map<T1, T2, Compare, Alloc> &_m)
+    template <typename CharT, typename T1, typename T2, typename Compare, typename Alloc>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const map<T1, T2, Compare, Alloc> &_m)
     {
         vector<pair<T1, T2>> _v(_m.begin(), _m.end());
 
@@ -146,8 +147,8 @@ namespace std
         return stream;
     }
 
-    template <typename T1, typename T2>
-    ostream &operator<<(ostream &stream, const pair<T1, T2> &_p)
+    template <typename CharT, typename T1, typename T2>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const pair<T1, T2> &_p)
     {
         return stream << "(" << _p.first << ", " << _p.second << ")";
     }
