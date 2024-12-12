@@ -3,3 +3,4 @@ build/
 
 run.bat
 data/corpus.txt
+data/frequency.txt

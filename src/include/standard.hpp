@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <deque>
 #include <execution>
 #include <fstream>
 #include <functional>
@@ -19,6 +20,8 @@
 #include <random>
 #include <set>
 #include <string>
+#include <thread>
+#include <unordered_set>
 #include <vector>
 
 #if defined(_WIN32) && !defined(WIN32)
@@ -33,6 +36,7 @@
 #endif
 
 #include <cxxabi.h>
+#include <sys/stat.h>
 
 namespace std
 {
@@ -99,6 +103,16 @@ namespace std
     }
 
     template <typename CharT, typename T>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const deque<T> &_v)
+    {
+        stream << "[";
+        __list_elements(stream, _v.begin(), _v.end());
+        stream << "]";
+
+        return stream;
+    }
+
+    template <typename CharT, typename T>
     basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const list<T> &_l)
     {
         stream << "[";
@@ -130,6 +144,25 @@ namespace std
 
     template <typename CharT, typename T1, typename T2, typename Compare, typename Alloc>
     basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const map<T1, T2, Compare, Alloc> &_m)
+    {
+        vector<pair<T1, T2>> _v(_m.begin(), _m.end());
+
+        stream << "{";
+        for (auto iter = _m.begin(); iter != _m.end(); iter++)
+        {
+            stream << iter->first << ": " << iter->second;
+            if (next(iter) != _m.end())
+            {
+                stream << ", ";
+            }
+        }
+        stream << "}";
+
+        return stream;
+    }
+
+    template <typename CharT, typename T1, typename T2, typename Compare, typename Alloc>
+    basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const unordered_map<T1, T2, Compare, Alloc> &_m)
     {
         vector<pair<T1, T2>> _v(_m.begin(), _m.end());
 
