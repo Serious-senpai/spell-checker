@@ -8,18 +8,18 @@
 
 void combine_tokens(
     const std::vector<std::string> &sentence,
-    const std::unordered_map<std::string, std::size_t> &wordlist_map,
-    std::vector<std::string> &tokens)
+    const std::unordered_set<std::string> &wordlist_set,
+    std::vector<std::string> &words)
 {
     std::string current;
-    tokens.clear();
+    words.clear();
     for (std::size_t i = 0; i < sentence.size(); i++)
     {
         current = sentence[i];
         while (++i < sentence.size())
         {
             std::string next_word = current + ' ' + sentence[i];
-            if (wordlist_map.find(next_word) != wordlist_map.end())
+            if (wordlist_set.find(next_word) != wordlist_set.end())
             {
                 current = next_word;
             }
@@ -30,7 +30,7 @@ void combine_tokens(
             }
         }
 
-        tokens.push_back(current);
+        words.push_back(current);
     }
 }
 

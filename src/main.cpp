@@ -111,12 +111,16 @@ void extract_tokens(const std::vector<std::string> &wordlist, std::vector<std::s
 char default_wordlist_path[] = "data/wordlist.txt";
 char default_corpus_path[] = "data/corpus.txt";
 char default_frequency_path[] = "data/frequency.txt";
+char default_input_path[] = "data/input.txt";
 
 int main(int argc, char **argv)
 {
     std::ios_base::sync_with_stdio(false);
 
-    char *wordlist_path = default_wordlist_path, *corpus_path = default_corpus_path, *frequency_path = default_frequency_path;
+    char *wordlist_path = default_wordlist_path,
+         *corpus_path = default_corpus_path,
+         *frequency_path = default_frequency_path,
+         *input_path = default_input_path;
     bool verbose = false;
     for (int i = 1; i < argc; i++)
     {
@@ -153,6 +157,17 @@ int main(int argc, char **argv)
                 throw std::out_of_range("Expected path to frequency file after \"--frequency\"");
             }
         }
+        else if (std::strcmp(argv[i], "--input") == 0)
+        {
+            if (++i < argc)
+            {
+                input_path = argv[i];
+            }
+            else
+            {
+                throw std::out_of_range("Expected path to input file after \"--input\"");
+            }
+        }
         else if (std::strcmp(argv[i], "--verbose") == 0)
         {
             verbose = true;
@@ -166,6 +181,8 @@ int main(int argc, char **argv)
     {
         to_lower(word);
     }
+
+    std::unordered_set<std::string> wordlist_set(wordlist.begin(), wordlist.end());
 
     std::vector<std::string> single_tokens;
     extract_tokens(wordlist, single_tokens);
@@ -239,6 +256,22 @@ int main(int argc, char **argv)
         }
 
         frequency_output.close();
+    }
+
+    std::cout << "Watching for changes in \"" << input_path << "\"..." << std::endl;
+    while (true)
+    {
+        std::fstream input(input_path, std::ios::in);
+
+        std::vector<std::string> sentence;
+        read_corpus_sentence(input, sentence);
+
+        std::vector<std::string> words;
+        combine_tokens(sentence, wordlist_set, words);
+        std::cout << words << "          \r" << std::flush;
+
+        input.close();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     return 0;
