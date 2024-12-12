@@ -29,5 +29,19 @@ jobs:
       - name: Download corpus
         run: python scripts/download.py
 
+      - name: Unzip corpus
+        run: unzip data/corpus.zip -d data/
+
       - name: Compile executable
         run: scripts/build.sh
+
+      - name: Run executable
+        run: build/main.exe
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: |
+            data/frequency.txt
+            data/screenshot.png
