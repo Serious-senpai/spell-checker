@@ -3,6 +3,7 @@
 
 void learn(
     const char *corpus_path,
+    const bool verbose,
     const std::unordered_map<std::string, std::size_t> &token_map,
     tuple_frequency<FREQUENCY_RECORD_LIMIT> &frequency)
 {
@@ -74,8 +75,12 @@ void learn(
             const auto size = input_ptr->tellg();
             auto speed = 1e6l * (size - size_offset);
             speed /= std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_offset).count();
-            std::cerr << "Reading corpus: " << memory_size(size);
-            std::cerr << " (" << memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
+
+            if (verbose)
+            {
+                std::cerr << "Reading corpus: " << memory_size(size);
+                std::cerr << " (" << memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
+            }
 
             size_offset = size;
             time_offset = std::chrono::high_resolution_clock::now();
@@ -112,6 +117,7 @@ int main(int argc, char **argv)
     std::ios_base::sync_with_stdio(false);
 
     char *wordlist_path = default_wordlist_path, *corpus_path = default_corpus_path, *frequency_path = default_frequency_path;
+    bool verbose = false;
     for (int i = 1; i < argc; i++)
     {
         if (std::strcmp(argv[i], "--wordlist") == 0)
@@ -146,6 +152,10 @@ int main(int argc, char **argv)
             {
                 throw std::out_of_range("Expected path to frequency file after \"--frequency\"");
             }
+        }
+        else if (std::strcmp(argv[i], "--verbose") == 0)
+        {
+            verbose = true;
         }
     }
 
@@ -216,7 +226,7 @@ int main(int argc, char **argv)
         frequency_input.close();
         std::cout << "Frequency file \"" << frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
         tuple_frequency<FREQUENCY_RECORD_LIMIT> frequency_learned;
-        learn(corpus_path, token_map, frequency_learned);
+        learn(corpus_path, verbose, token_map, frequency_learned);
 
         std::cout << "\nSaving " << frequency_learned.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
 
