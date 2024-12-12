@@ -26,17 +26,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Download corpus
+      - name: Download zipped corpus
         run: python scripts/download.py
 
-      - name: Unzip corpus
-        run: unzip data/corpus.zip -d data/
+      - name: Install Pipe Viewer
+        run: sudo apt install pv -y
 
       - name: Compile executable
         run: scripts/build.sh
 
-      - name: Run executable
-        run: build/main.exe
+      - name: Run executable with piped corpus
+        run: unzip -p data/corpus.zip corpus.txt | pv -B 32M | build/main.exe --corpus -
 
       - name: Upload results
         uses: actions/upload-artifact@v4

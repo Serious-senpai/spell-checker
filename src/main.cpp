@@ -6,14 +6,24 @@ void learn(
     const std::unordered_map<std::string, std::size_t> &token_map,
     tuple_frequency<FREQUENCY_RECORD_LIMIT> &frequency)
 {
-    std::fstream input(corpus_path, std::ios::in);
+    std::istream *input_ptr;
+    std::fstream file_input;
+    if (std::strcmp(corpus_path, "-") == 0)
+    {
+        input_ptr = &std::cin;
+    }
+    else
+    {
+        file_input.open(corpus_path, std::ios::in);
+        input_ptr = &file_input;
+    }
 
     std::streampos size_offset = 0;
     auto time_offset = std::chrono::high_resolution_clock::now();
 
     std::vector<std::string> sentence;
     std::unordered_map<uint64_t, unsigned int> temp_record;
-    for (std::size_t counter = 0; read_corpus_sentence(input, sentence); counter++)
+    for (std::size_t counter = 0; read_corpus_sentence(*input_ptr, sentence); counter++)
     {
         for (auto &word : sentence)
         {
@@ -61,7 +71,7 @@ void learn(
 
         if (!(counter & 0x1FFF))
         {
-            const auto size = input.tellg();
+            const auto size = input_ptr->tellg();
             auto speed = 1e6l * (size - size_offset);
             speed /= std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_offset).count();
             std::cerr << "Reading corpus: " << memory_size(size);
@@ -208,7 +218,7 @@ int main(int argc, char **argv)
         tuple_frequency<FREQUENCY_RECORD_LIMIT> frequency_learned;
         learn(corpus_path, token_map, frequency_learned);
 
-        std::cout << "Saving " << frequency_learned.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
+        std::cout << "\nSaving " << frequency_learned.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
 
         std::fstream frequency_output(frequency_path, std::ios::out);
         for (auto [mask, iterator] : frequency_learned)
