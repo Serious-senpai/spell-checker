@@ -28,7 +28,7 @@ options.add_argument("--headless")
 
 driver = webdriver.Firefox(options=options)
 driver.get(MEDIAFIRE_URL)
-driver.get_full_page_screenshot_as_file(ROOT / "data" / "screenshot.png")
+driver.get_full_page_screenshot_as_file(str(ROOT / "data" / "screenshot.png"))
 
 button = driver.find_element(By.ID, "downloadButton")
 url = button.get_attribute("href")
