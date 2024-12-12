@@ -14,7 +14,7 @@ MEDIAFIRE_URL = "https://www.mediafire.com/file/015erqvfiomfhqh/corpus.zip/file"
 
 async def download(url: str) -> None:
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, timeout=None) as response:
             response.raise_for_status()
 
             print(f"Downloading from {url!r}")
