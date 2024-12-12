@@ -13,7 +13,7 @@ MEDIAFIRE_URL = "https://www.mediafire.com/file/015erqvfiomfhqh/corpus.zip/file"
 options = webdriver.FirefoxOptions()
 options.add_argument("--headless")
 
-driver = webdriver.Firefox()
+driver = webdriver.Firefox(options=options)
 driver.get(MEDIAFIRE_URL)
 button = driver.find_element(By.ID, "downloadButton")
 url = button.get_attribute("href")
