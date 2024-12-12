@@ -29,6 +29,9 @@ jobs:
       - name: Install Chromium
         run: sudo apt-get install chromium-chromedriver -y
 
+      - name: Show path to Chromium
+        run: whereis chromedriver
+
       - name: Download corpus
         run: python scripts/download.py
 

@@ -12,6 +12,7 @@ MEDIAFIRE_URL = "https://www.mediafire.com/file/015erqvfiomfhqh/corpus.zip/file"
 
 options = webdriver.ChromeOptions()
 options.binary_location = "/usr/lib/chromium-browser/chromedriver"
+
 driver = webdriver.Chrome(options=options)
 driver.get(MEDIAFIRE_URL)
 button = driver.find_element(By.ID, "downloadButton")
