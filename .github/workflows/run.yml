@@ -26,11 +26,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Chromium
-        run: sudo apt-get install chromium-chromedriver
-
-      - name: Download corpus
+      - name: Download zipped corpus
         run: python scripts/download.py
+
+      - name: Install Pipe Viewer
+        run: sudo apt install pv -y
 
       - name: Compile executable
         run: scripts/build.sh
+
+      - name: Run executable with piped corpus
+        timeout-minutes: 330
+        run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/main.exe --corpus -
+
+      - name: Upload results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: |
+            data/frequency.txt
+            data/screenshot.png

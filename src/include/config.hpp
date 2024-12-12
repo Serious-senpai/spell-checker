@@ -103,7 +103,7 @@ delete_variants(const std::vector<std::string> &wordlist)
     return variants;
 }
 
-bool read_corpus_sentence(std::fstream &input, std::vector<std::string> &sentence)
+bool read_corpus_sentence(std::istream &input, std::vector<std::string> &sentence)
 {
     if (!input)
     {
