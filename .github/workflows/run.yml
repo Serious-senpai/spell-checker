@@ -36,9 +36,11 @@ jobs:
         run: scripts/build.sh
 
       - name: Run executable with piped corpus
-        run: unzip -p data/corpus.zip corpus.txt | pv -B 32M | build/main.exe --corpus -
+        timeout-minutes: 330
+        run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/main.exe --corpus -
 
       - name: Upload results
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: results
