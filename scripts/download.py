@@ -10,10 +10,7 @@ ROOT = Path(__file__).parent.parent.resolve()
 MEDIAFIRE_URL = "https://www.mediafire.com/file/015erqvfiomfhqh/corpus.zip/file"
 
 
-options = webdriver.ChromeOptions()
-options.binary_location = "/usr/lib/chromium-browser/chromedriver"
-
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Firefox()
 driver.get(MEDIAFIRE_URL)
 button = driver.find_element(By.ID, "downloadButton")
 url = button.get_attribute("href")
