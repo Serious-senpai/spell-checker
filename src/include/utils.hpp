@@ -1,29 +1,5 @@
 #include "standard.hpp"
 
-class EnableUTF8Console
-{
-private:
-#ifdef WIN32
-    UINT _oldCodePoint;
-#endif
-
-public:
-    EnableUTF8Console()
-    {
-#ifdef WIN32
-        _oldCodePoint = GetConsoleOutputCP();
-        SetConsoleOutputCP(CP_UTF8);
-#endif
-    }
-
-    ~EnableUTF8Console()
-    {
-#ifdef WIN32
-        SetConsoleOutputCP(_oldCodePoint);
-#endif
-    }
-};
-
 /**
  * @brief Format a string with C specifiers.
  * @see https://stackoverflow.com/a/26221725

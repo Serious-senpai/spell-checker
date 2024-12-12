@@ -99,7 +99,6 @@ char default_frequency_path[] = "data/frequency.txt";
 
 int main(int argc, char **argv)
 {
-    EnableUTF8Console _lifespan;
     std::ios_base::sync_with_stdio(false);
 
     char *wordlist_path = default_wordlist_path, *corpus_path = default_corpus_path, *frequency_path = default_frequency_path;

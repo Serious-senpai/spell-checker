@@ -1,6 +1,8 @@
+.venv/
 .vscode/
 build/
 
 run.bat
 data/corpus.txt
+data/corpus.zip
 data/frequency.txt
