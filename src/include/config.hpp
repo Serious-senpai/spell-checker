@@ -2,25 +2,30 @@
 
 #include "utils.hpp"
 
-#define EDIT_DISTANCE_THRESHOLD 5
-#define THREADS_COUNT 8
-#define FREQUENCY_RECORD_LIMIT 300000
+#define EDIT_DISTANCE_THRESHOLD 3
+#define FREQUENCY_RECORD_LIMIT 500000
 
+/// @brief Combine multiple tokens into words.
+/// @param tokens The vector of tokens in the sentence.
+/// @param wordlist_set The wordlist.
+/// @param words The result vector to write the combined indices to.
 void combine_tokens(
-    const std::vector<std::string> &sentence,
+    const std::vector<std::string> &tokens,
     const std::unordered_set<std::string> &wordlist_set,
-    std::vector<std::string> &words)
+    std::vector<std::vector<std::size_t>> &words)
 {
     std::string current;
     words.clear();
-    for (std::size_t i = 0; i < sentence.size(); i++)
+    for (std::size_t i = 0; i < tokens.size(); i++)
     {
-        current = sentence[i];
-        while (++i < sentence.size())
+        std::vector<std::size_t> indices = {i};
+        current = tokens[i];
+        while (++i < tokens.size())
         {
-            std::string next_word = current + ' ' + sentence[i];
+            std::string next_word = current + ' ' + tokens[i];
             if (wordlist_set.find(next_word) != wordlist_set.end())
             {
+                indices.push_back(i);
                 current = next_word;
             }
             else
@@ -30,11 +35,23 @@ void combine_tokens(
             }
         }
 
-        words.push_back(current);
+        words.push_back(indices);
     }
 }
 
-bool is_valid_word(const std::string &token)
+void remove_non_alphabet_characters(const std::string &token, std::string &result)
+{
+    result.clear();
+    for (auto &c : token)
+    {
+        if ((c & static_cast<char>(0x80)) || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+        {
+            result.push_back(c);
+        }
+    }
+}
+
+bool is_valid_token(const std::string &token)
 {
     // We assume that multibyte characters are always valid (e.g. "à", "á", "ê", ...).
     // Thus, we only need to check characters from U+0000 to U+007F.
@@ -53,7 +70,7 @@ std::vector<std::string> import_wordlist(const char *wordlist_path)
     std::fstream input(wordlist_path, std::ios::in);
     if (!input)
     {
-        throw std::runtime_error(format("Failed to open \"%s\"", wordlist_path));
+        throw std::runtime_error(utils::format("Failed to open \"%s\"", wordlist_path));
     }
 
     std::vector<std::string> wordlist;
@@ -103,26 +120,30 @@ delete_variants(const std::vector<std::string> &wordlist)
     return variants;
 }
 
-bool read_corpus_sentence(std::istream &input, std::vector<std::string> &sentence)
+template <bool _AllowInvalidChar = false>
+bool read_single_sentence(std::istream &input, std::vector<std::string> &tokens)
 {
     if (!input)
     {
         return false;
     }
 
-    std::string word;
-    sentence.clear();
-    while (input >> word)
+    std::string token;
+    tokens.clear();
+    while (input >> token)
     {
         bool end = false;
-        char last = word.back();
+        char last = token.back();
         if (!(last & static_cast<char>(0x80)))
         {
             // Last byte represents a character.
             if (!((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z')))
             {
                 // Last character is not an alphabet character.
-                word.pop_back();
+                if constexpr (!_AllowInvalidChar)
+                {
+                    token.pop_back();
+                }
 
                 if (last == '.')
                 {
@@ -131,9 +152,9 @@ bool read_corpus_sentence(std::istream &input, std::vector<std::string> &sentenc
             }
         }
 
-        if (is_valid_word(word))
+        if (_AllowInvalidChar || is_valid_token(token))
         {
-            sentence.push_back(word);
+            tokens.push_back(token);
         }
 
         if (end)

@@ -1,3 +1,4 @@
+#include <bk_tree.hpp>
 #include <config.hpp>
 #include <distance.hpp>
 
@@ -24,11 +25,11 @@ void learn(
 
     std::vector<std::string> sentence;
     std::unordered_map<uint64_t, unsigned int> temp_record;
-    for (std::size_t counter = 0; read_corpus_sentence(*input_ptr, sentence); counter++)
+    for (std::size_t counter = 0; read_single_sentence(*input_ptr, sentence); counter++)
     {
         for (auto &word : sentence)
         {
-            to_lower(word);
+            utils::to_lower(word);
         }
 
         std::deque<std::size_t> window;
@@ -78,8 +79,8 @@ void learn(
 
             if (verbose)
             {
-                std::cerr << "Reading corpus: " << memory_size(size);
-                std::cerr << " (" << memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
+                std::cerr << "Reading corpus: " << utils::memory_size(size);
+                std::cerr << " (" << utils::memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
             }
 
             size_offset = size;
@@ -179,7 +180,7 @@ int main(int argc, char **argv)
 
     for (auto &word : wordlist)
     {
-        to_lower(word);
+        utils::to_lower(word);
     }
 
     std::unordered_set<std::string> wordlist_set(wordlist.begin(), wordlist.end());
@@ -241,6 +242,7 @@ int main(int argc, char **argv)
     else
     {
         frequency_input.close();
+
         std::cout << "Frequency file \"" << frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
         tuple_frequency<FREQUENCY_RECORD_LIMIT> frequency_learned;
         learn(corpus_path, verbose, token_map, frequency_learned);
@@ -258,21 +260,164 @@ int main(int argc, char **argv)
         frequency_output.close();
     }
 
-    std::cout << "Watching for changes in \"" << input_path << "\"..." << std::endl;
-    while (true)
+    // std::cout << "Building BK-tree from wordlist..." << std::endl;
+    // BKTree bk_tree(wordlist);
+
+    std::cout << "Reading \"" << input_path << "\"..." << std::endl;
+    std::fstream input(input_path, std::ios::in);
+
+    std::vector<std::string> tokens;
+    while (read_single_sentence<true>(input, tokens))
     {
-        std::fstream input(input_path, std::ios::in);
+        // `tokens` also includes non-alphabet characters
+        for (auto &token : tokens)
+        {
+            utils::to_lower(token);
+        }
 
-        std::vector<std::string> sentence;
-        read_corpus_sentence(input, sentence);
+        std::vector<std::string *> normalized_tokens_ptr;
+        for (auto &token : tokens)
+        {
+            auto *ptr = new std::string();
+            remove_non_alphabet_characters(token, *ptr);
+            if (ptr->empty())
+            {
+                normalized_tokens_ptr.push_back(nullptr);
+                delete ptr;
+            }
+            else
+            {
+                normalized_tokens_ptr.push_back(ptr);
+            }
+        }
 
-        std::vector<std::string> words;
-        combine_tokens(sentence, wordlist_set, words);
-        std::cout << words << "          \r" << std::flush;
+        // std::cerr << "normalized_tokens_ptr = " << normalized_tokens_ptr << std::endl;
 
-        input.close();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::vector<std::string *> normalized_tokens_ptr_not_null;
+        for (auto &ptr : normalized_tokens_ptr)
+        {
+            if (ptr != nullptr)
+            {
+                normalized_tokens_ptr_not_null.push_back(ptr);
+            }
+        }
+
+        // std::cerr << "normalized_tokens_ptr_not_null = " << normalized_tokens_ptr_not_null << std::endl;
+
+        std::vector<std::string> normalized_tokens;
+        for (auto &ptr : normalized_tokens_ptr_not_null)
+        {
+            normalized_tokens.emplace_back(*ptr);
+        }
+
+        std::vector<std::vector<std::size_t>> words;
+        combine_tokens(normalized_tokens, wordlist_set, words);
+        // std::cerr << "words = " << words << std::endl;
+
+        std::vector<bool> need_fix(normalized_tokens.size());
+        for (auto &indices : words)
+        {
+            if (indices.size() == 1)
+            {
+                need_fix[indices[0]] = true;
+            }
+        }
+
+        for (std::size_t i = 0; i < normalized_tokens.size(); i++)
+        {
+            if (need_fix[i])
+            {
+                std::unordered_map<uint64_t, unsigned int> scores;
+                if (i > 0)
+                {
+                    auto prev = token_map.find(normalized_tokens[i - 1]);
+                    if (prev != token_map.end())
+                    {
+                        auto prev_index = prev->second;
+                        for (auto &[mask, freq] : frequency)
+                        {
+                            if (((mask >> 16) & 0xFFFF) == prev_index)
+                            {
+                                scores[mask & 0xFFFF]++;
+                            }
+                            else if (((mask >> 32) & 0xFFFF) == prev_index)
+                            {
+                                scores[(mask >> 16) & 0xFFFF]++;
+                            }
+                        }
+                    }
+                }
+                if (i + 1 < normalized_tokens.size())
+                {
+                    auto next = token_map.find(normalized_tokens[i + 1]);
+                    if (next != token_map.end())
+                    {
+                        auto next_index = next->second;
+                        for (auto &[mask, freq] : frequency)
+                        {
+                            if ((mask & 0xFFFF) == next_index)
+                            {
+                                scores[(mask >> 16) & 0xFFFF]++;
+                            }
+                            else if (((mask >> 16) & 0xFFFF) == next_index)
+                            {
+                                scores[(mask >> 32) & 0xFFFF]++;
+                            }
+                        }
+                    }
+                }
+
+                std::vector<std::pair<uint64_t, unsigned int>> candidates(scores.begin(), scores.end());
+                std::sort(
+                    candidates.begin(), candidates.end(),
+                    [](const auto &a, const auto &b)
+                    {
+                        return a.second > b.second;
+                    });
+
+                std::vector<std::string> candidates_str;
+                for (std::size_t i = 0; i < std::min<std::size_t>(1000, candidates.size()); i++)
+                {
+                    candidates_str.push_back(single_tokens[candidates[i].first]);
+                }
+
+                // std::cerr << "\"" << normalized_tokens[i] << "\":\ncandidates_str = " << candidates_str << std::endl;
+                // std::cerr << "scores = " << candidates << std::endl;
+
+                std::vector<std::size_t> distances;
+                for (auto &candidate : candidates_str)
+                {
+                    distances.push_back(damerau_levenshtein(normalized_tokens[i], candidate));
+                }
+
+                auto result_index = std::distance(distances.begin(), std::min_element(distances.begin(), distances.end()));
+                normalized_tokens[i] = *normalized_tokens_ptr_not_null[i] = candidates_str[result_index];
+            }
+        }
+
+        // Print results
+        for (std::size_t i = 0; i < tokens.size(); i++)
+        {
+            if (normalized_tokens_ptr[i] != nullptr)
+            {
+                std::cout << *normalized_tokens_ptr[i];
+            }
+            else
+            {
+                std::cout << tokens[i];
+            }
+
+            std::cout << (i + 1 == tokens.size() ? ". " : " ");
+        }
+
+        for (auto &ptr : normalized_tokens_ptr_not_null)
+        {
+            delete ptr;
+        }
     }
+    std::cout << std::endl;
+
+    input.close();
 
     return 0;
 }
