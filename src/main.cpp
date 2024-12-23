@@ -2,7 +2,7 @@
 #include <config.hpp>
 #include <distance.hpp>
 
-uint16_t tokenize(const std::string &token, std::unordered_map<std::string, uint16_t> &token_map)
+uint32_t tokenize(const std::string &token, std::unordered_map<std::string, uint32_t> &token_map)
 {
     auto iter = token_map.find(token);
     if (iter == token_map.end())
@@ -16,8 +16,8 @@ uint16_t tokenize(const std::string &token, std::unordered_map<std::string, uint
 void learn(
     const char *corpus_path,
     const bool verbose,
-    std::unordered_map<std::string, uint16_t> &token_map,
-    std::unordered_map<uint32_t, unsigned int> &frequency)
+    std::unordered_map<std::string, uint32_t> &token_map,
+    std::unordered_map<uint64_t, unsigned int> &frequency)
 {
     std::istream *input_ptr;
     std::fstream file_input;
@@ -32,24 +32,18 @@ void learn(
     }
 
     std::string token;
-    std::vector<std::string> tokens;
+    std::vector<uint32_t> tokens;
 
-    std::vector<uint16_t> tokenized;
     const auto process_tokens = [&]()
     {
-        tokenized.clear();
-        for (auto &token : tokens)
-        {
-            utils::to_lower(token);
-            tokenized.push_back(tokenize(token, token_map));
-        }
-
-        const auto size = tokenized.size();
+        const auto size = tokens.size();
         for (std::size_t i = 0; i + 1 < size; i++)
         {
-            auto mask = (static_cast<uint32_t>(tokenized[i]) << 16) | tokenized[i + 1];
+            auto mask = (static_cast<uint64_t>(tokens[i]) << 32) | tokens[i + 1];
             frequency[mask]++;
         }
+
+        tokens.clear();
     };
 
     const auto time_offset = std::chrono::high_resolution_clock::now();
@@ -65,25 +59,27 @@ void learn(
         // std::cerr << "Examining \"" << token << "\", mask = " << first_valid << mid_valid << last_valid << std::endl;
         if (mask == 0b111)
         {
-            tokens.push_back(token);
+            utils::to_lower(token);
+            tokens.push_back(tokenize(token, token_map));
         }
         else if (mask == 0b011)
         {
             process_tokens();
-            tokens.clear();
-            tokens.push_back(token.substr(1));
+
+            utils::to_lower(token);
+            tokens.push_back(tokenize(token.substr(1), token_map));
         }
         else if (mask == 0b110)
         {
             token.pop_back();
-            tokens.push_back(token);
+            utils::to_lower(token);
+
+            tokens.push_back(tokenize(token, token_map));
             process_tokens();
-            tokens.clear();
         }
         else
         {
             process_tokens();
-            tokens.clear();
         }
 
         if (verbose && !(++counter & 0x3FFFF))
@@ -165,8 +161,9 @@ int main(int argc, char **argv)
         }
     }
 
-    std::unordered_map<std::string, uint16_t> token_map;
-    std::unordered_map<uint32_t, unsigned int> frequency;
+    std::unordered_map<std::string, uint32_t> token_map;
+    std::vector<std::string> reversed_token_map;
+    std::unordered_map<uint64_t, unsigned int> frequency;
     std::fstream frequency_input(frequency_path, std::ios::in);
     if (frequency_input)
     {
@@ -183,10 +180,16 @@ int main(int argc, char **argv)
             unsigned int freq;
             frequency_input >> freq;
 
-            frequency[(static_cast<uint32_t>(first) << 16) | second] = freq;
+            frequency[(static_cast<uint64_t>(first) << 32) | second] = freq;
         }
 
         frequency_input.close();
+
+        reversed_token_map.resize(token_map.size());
+        for (auto &[token, index] : token_map)
+        {
+            reversed_token_map[index] = token;
+        }
         std::cout << "Found " << frequency.size() << " tuples" << std::endl;
     }
     else
@@ -198,7 +201,7 @@ int main(int argc, char **argv)
 
         std::cout << "\nSaving " << frequency.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
 
-        std::vector<std::string> reversed_token_map(token_map.size());
+        reversed_token_map.resize(token_map.size());
         for (auto &[token, index] : token_map)
         {
             reversed_token_map[index] = token;
@@ -209,7 +212,7 @@ int main(int argc, char **argv)
         {
             if (freq > 1)
             {
-                auto first = mask >> 16, second = mask & 0xFFFF;
+                auto first = mask >> 32, second = mask & 0xFFFFFFFF;
                 frequency_output << reversed_token_map[first] << ' ' << reversed_token_map[second] << ' ' << freq << '\n';
             }
         }
@@ -219,6 +222,13 @@ int main(int argc, char **argv)
 
     // std::cout << "Building BK-tree from wordlist..." << std::endl;
     // BKTree bk_tree(wordlist);
+
+    auto iter = std::max_element(
+        frequency.begin(), frequency.end(),
+        [](const auto &lhs, const auto &rhs)
+        { return lhs.second < rhs.second; });
+
+    std::cout << "Most frequent tuple: \"" << reversed_token_map[iter->first >> 32] << ' ' << reversed_token_map[iter->first & 0xFFFFFFFF] << "\" with a count of " << iter->second << std::endl;
 
     std::cout << "Reading \"" << input_path << "\"..." << std::endl;
     std::fstream input(input_path, std::ios::in);

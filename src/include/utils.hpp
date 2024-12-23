@@ -58,8 +58,7 @@ namespace utils
             }
             else
             {
-                unsigned char byte = str[i];
-                str[i] = std::tolower(byte);
+                str[i] = std::tolower(static_cast<unsigned char>(str[i]));
             }
         }
     }
