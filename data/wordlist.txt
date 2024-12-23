@@ -10201,7 +10201,7 @@ gà_giò
 gà_gà
 gà_gô
 gà_gật
-gà_hoa0
+gà_hoa
 gà_hoa_mơ
 gà_lôi
 gà_lơgo

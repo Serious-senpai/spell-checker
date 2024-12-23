@@ -2,11 +2,22 @@
 #include <config.hpp>
 #include <distance.hpp>
 
+uint16_t tokenize(const std::string &token, std::unordered_map<std::string, uint16_t> &token_map)
+{
+    auto iter = token_map.find(token);
+    if (iter == token_map.end())
+    {
+        iter = token_map.emplace(token, token_map.size()).first;
+    }
+
+    return iter->second;
+}
+
 void learn(
     const char *corpus_path,
     const bool verbose,
-    const std::unordered_map<std::string, std::size_t> &token_map,
-    tuple_frequency<FREQUENCY_RECORD_LIMIT> &frequency)
+    std::unordered_map<std::string, uint16_t> &token_map,
+    std::unordered_map<uint32_t, unsigned int> &frequency)
 {
     std::istream *input_ptr;
     std::fstream file_input;
@@ -20,93 +31,71 @@ void learn(
         input_ptr = &file_input;
     }
 
-    std::streampos size_offset = 0;
-    auto time_offset = std::chrono::high_resolution_clock::now();
+    std::string token;
+    std::vector<std::string> tokens;
 
-    std::vector<std::string> sentence;
-    std::unordered_map<uint64_t, unsigned int> temp_record;
-    for (std::size_t counter = 0; read_single_sentence(*input_ptr, sentence); counter++)
+    std::vector<uint16_t> tokenized;
+    const auto process_tokens = [&]()
     {
-        for (auto &word : sentence)
+        tokenized.clear();
+        for (auto &token : tokens)
         {
-            utils::to_lower(word);
+            utils::to_lower(token);
+            tokenized.push_back(tokenize(token, token_map));
         }
 
-        std::deque<std::size_t> window;
-        std::size_t begin = 0, end = 0;
-
-        for (std::size_t i = 0; i + 2 < sentence.size(); i++)
+        const auto size = tokenized.size();
+        for (std::size_t i = 0; i + 1 < size; i++)
         {
-            // Ensure that window contains subarray [i, i + 3), currently [begin, end)
-            while (begin < i)
-            {
-                window.pop_front();
-                begin++;
-            }
+            auto mask = (static_cast<uint32_t>(tokenized[i]) << 16) | tokenized[i + 1];
+            frequency[mask]++;
+        }
+    };
 
-            bool filled = true;
-            while (end < i + 3)
-            {
-                auto iter = token_map.find(sentence[end]);
-                if (iter != token_map.end())
-                {
-                    window.push_back(iter->second);
-                    end++;
-                }
-                else
-                {
-                    window.clear();
-                    i = end;
-                    begin = ++end;
+    const auto time_offset = std::chrono::high_resolution_clock::now();
+    unsigned long long counter = 0;
+    while (*input_ptr >> token)
+    {
+        // `token` has at least 1 character
+        bool first_valid = is_tokenizable_char(token.front());
+        bool mid_valid = std::all_of(token.begin() + 1, token.end() - 1, is_tokenizable_char);
+        bool last_valid = is_tokenizable_char(token.back());
 
-                    filled = false;
-                    break;
-                }
-            }
-
-            if (filled)
-            {
-                int64_t mask = (window[0] << 32) | (window[1] << 16) | window[2];
-                temp_record[mask]++;
-            }
+        auto mask = (first_valid << 2) | (mid_valid << 1) | last_valid;
+        // std::cerr << "Examining \"" << token << "\", mask = " << first_valid << mid_valid << last_valid << std::endl;
+        if (mask == 0b111)
+        {
+            tokens.push_back(token);
+        }
+        else if (mask == 0b011)
+        {
+            process_tokens();
+            tokens.clear();
+            tokens.push_back(token.substr(1));
+        }
+        else if (mask == 0b110)
+        {
+            token.pop_back();
+            tokens.push_back(token);
+            process_tokens();
+            tokens.clear();
+        }
+        else
+        {
+            process_tokens();
+            tokens.clear();
         }
 
-        if (!(counter & 0x1FFF))
+        if (verbose && !(++counter & 0x3FFFF))
         {
             const auto size = input_ptr->tellg();
-            auto speed = 1e6l * (size - size_offset);
+            auto speed = 1e6l * size;
             speed /= std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_offset).count();
 
-            if (verbose)
-            {
-                std::cerr << "Reading corpus: " << utils::memory_size(size);
-                std::cerr << " (" << utils::memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
-            }
-
-            size_offset = size;
-            time_offset = std::chrono::high_resolution_clock::now();
-
-            // Bottleneck
-            frequency.record(temp_record);
-            temp_record.clear();
+            std::cerr << "Reading corpus: " << utils::memory_size(size);
+            std::cerr << " (" << utils::memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
         }
     }
-}
-
-void extract_tokens(const std::vector<std::string> &wordlist, std::vector<std::string> &single_tokens)
-{
-    std::unordered_set<std::string> token_set;
-    std::string token;
-    for (auto &word : wordlist)
-    {
-        std::stringstream ss(word);
-        while (ss >> token)
-        {
-            token_set.insert(token);
-        }
-    }
-
-    single_tokens.assign(token_set.begin(), token_set.end());
 }
 
 char default_wordlist_path[] = "data/wordlist.txt";
@@ -122,6 +111,7 @@ int main(int argc, char **argv)
          *corpus_path = default_corpus_path,
          *frequency_path = default_frequency_path,
          *input_path = default_input_path;
+
     bool verbose = false;
     for (int i = 1; i < argc; i++)
     {
@@ -175,65 +165,25 @@ int main(int argc, char **argv)
         }
     }
 
-    auto wordlist = import_wordlist(wordlist_path);
-    std::cout << "Found " << wordlist.size() << " words in wordlist." << std::endl;
-
-    for (auto &word : wordlist)
-    {
-        utils::to_lower(word);
-    }
-
-    std::unordered_set<std::string> wordlist_set(wordlist.begin(), wordlist.end());
-
-    std::vector<std::string> single_tokens;
-    extract_tokens(wordlist, single_tokens);
-    std::cout << "Extracted " << single_tokens.size() << " single tokens." << std::endl;
-
-    std::unordered_map<std::string, std::size_t> token_map;
-    for (std::size_t i = 0; i < single_tokens.size(); i++)
-    {
-        token_map[single_tokens[i]] = i;
-    }
-
-    std::map<std::size_t, std::size_t> count;
-    for (auto &word : wordlist)
-    {
-        auto syllables = std::count(word.begin(), word.end(), ' ') + 1;
-        count[syllables]++;
-    }
-    std::cout << "Syllable count of wordlist: " << count << std::endl;
-
-    std::unordered_map<uint64_t, unsigned int> frequency;
+    std::unordered_map<std::string, uint16_t> token_map;
+    std::unordered_map<uint32_t, unsigned int> frequency;
     std::fstream frequency_input(frequency_path, std::ios::in);
     if (frequency_input)
     {
         std::cout << "Importing data from \"" << frequency_path << "\"..." << std::endl;
-        while (frequency_input)
-        {
-            bool valid = true;
-            std::vector<std::string> tuple(3);
-            for (std::size_t i = 0; i < 3; i++)
-            {
-                if (!(frequency_input >> tuple[i]) || token_map.find(tuple[i]) == token_map.end())
-                {
-                    valid = false;
-                    break;
-                }
-            }
 
-            if (valid)
-            {
-                std::size_t freq;
-                if (frequency_input >> freq)
-                {
-                    int64_t mask = (token_map[tuple[0]] << 32) | (token_map[tuple[1]] << 16) | token_map[tuple[2]];
-                    frequency[mask] = freq;
-                }
-            }
-            else
-            {
-                break;
-            }
+        std::string token;
+        while (frequency_input >> token)
+        {
+            auto first = tokenize(token, token_map);
+
+            frequency_input >> token;
+            auto second = tokenize(token, token_map);
+
+            unsigned int freq;
+            frequency_input >> freq;
+
+            frequency[(static_cast<uint32_t>(first) << 16) | second] = freq;
         }
 
         frequency_input.close();
@@ -242,19 +192,26 @@ int main(int argc, char **argv)
     else
     {
         frequency_input.close();
-
         std::cout << "Frequency file \"" << frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
-        tuple_frequency<FREQUENCY_RECORD_LIMIT> frequency_learned;
-        learn(corpus_path, verbose, token_map, frequency_learned);
 
-        std::cout << "\nSaving " << frequency_learned.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
+        learn(corpus_path, verbose, token_map, frequency);
+
+        std::cout << "\nSaving " << frequency.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
+
+        std::vector<std::string> reversed_token_map(token_map.size());
+        for (auto &[token, index] : token_map)
+        {
+            reversed_token_map[index] = token;
+        }
 
         std::fstream frequency_output(frequency_path, std::ios::out);
-        for (auto [mask, iterator] : frequency_learned)
+        for (auto &[mask, freq] : frequency)
         {
-            std::size_t first = mask >> 32, second = ((mask & 0xFFFF0000) >> 16), third = (mask & 0xFFFF);
-            frequency_output << single_tokens[first] << ' ' << single_tokens[second] << ' ' << single_tokens[third] << ' ' << iterator->first << '\n';
-            frequency[mask] = iterator->first;
+            if (freq > 1)
+            {
+                auto first = mask >> 16, second = mask & 0xFFFF;
+                frequency_output << reversed_token_map[first] << ' ' << reversed_token_map[second] << ' ' << freq << '\n';
+            }
         }
 
         frequency_output.close();
@@ -265,157 +222,6 @@ int main(int argc, char **argv)
 
     std::cout << "Reading \"" << input_path << "\"..." << std::endl;
     std::fstream input(input_path, std::ios::in);
-
-    std::vector<std::string> tokens;
-    while (read_single_sentence<true>(input, tokens))
-    {
-        // `tokens` also includes non-alphabet characters
-        for (auto &token : tokens)
-        {
-            utils::to_lower(token);
-        }
-
-        std::vector<std::string *> normalized_tokens_ptr;
-        for (auto &token : tokens)
-        {
-            auto *ptr = new std::string();
-            remove_non_alphabet_characters(token, *ptr);
-            if (ptr->empty())
-            {
-                normalized_tokens_ptr.push_back(nullptr);
-                delete ptr;
-            }
-            else
-            {
-                normalized_tokens_ptr.push_back(ptr);
-            }
-        }
-
-        // std::cerr << "normalized_tokens_ptr = " << normalized_tokens_ptr << std::endl;
-
-        std::vector<std::string *> normalized_tokens_ptr_not_null;
-        for (auto &ptr : normalized_tokens_ptr)
-        {
-            if (ptr != nullptr)
-            {
-                normalized_tokens_ptr_not_null.push_back(ptr);
-            }
-        }
-
-        // std::cerr << "normalized_tokens_ptr_not_null = " << normalized_tokens_ptr_not_null << std::endl;
-
-        std::vector<std::string> normalized_tokens;
-        for (auto &ptr : normalized_tokens_ptr_not_null)
-        {
-            normalized_tokens.emplace_back(*ptr);
-        }
-
-        std::vector<std::vector<std::size_t>> words;
-        combine_tokens(normalized_tokens, wordlist_set, words);
-        // std::cerr << "words = " << words << std::endl;
-
-        std::vector<bool> need_fix(normalized_tokens.size());
-        for (auto &indices : words)
-        {
-            if (indices.size() == 1)
-            {
-                need_fix[indices[0]] = true;
-            }
-        }
-
-        for (std::size_t i = 0; i < normalized_tokens.size(); i++)
-        {
-            if (need_fix[i])
-            {
-                std::unordered_map<uint64_t, unsigned int> scores;
-                if (i > 0)
-                {
-                    auto prev = token_map.find(normalized_tokens[i - 1]);
-                    if (prev != token_map.end())
-                    {
-                        auto prev_index = prev->second;
-                        for (auto &[mask, freq] : frequency)
-                        {
-                            if (((mask >> 16) & 0xFFFF) == prev_index)
-                            {
-                                scores[mask & 0xFFFF]++;
-                            }
-                            else if (((mask >> 32) & 0xFFFF) == prev_index)
-                            {
-                                scores[(mask >> 16) & 0xFFFF]++;
-                            }
-                        }
-                    }
-                }
-                if (i + 1 < normalized_tokens.size())
-                {
-                    auto next = token_map.find(normalized_tokens[i + 1]);
-                    if (next != token_map.end())
-                    {
-                        auto next_index = next->second;
-                        for (auto &[mask, freq] : frequency)
-                        {
-                            if ((mask & 0xFFFF) == next_index)
-                            {
-                                scores[(mask >> 16) & 0xFFFF]++;
-                            }
-                            else if (((mask >> 16) & 0xFFFF) == next_index)
-                            {
-                                scores[(mask >> 32) & 0xFFFF]++;
-                            }
-                        }
-                    }
-                }
-
-                std::vector<std::pair<uint64_t, unsigned int>> candidates(scores.begin(), scores.end());
-                std::sort(
-                    candidates.begin(), candidates.end(),
-                    [](const auto &a, const auto &b)
-                    {
-                        return a.second > b.second;
-                    });
-
-                std::vector<std::string> candidates_str;
-                for (std::size_t i = 0; i < std::min<std::size_t>(1000, candidates.size()); i++)
-                {
-                    candidates_str.push_back(single_tokens[candidates[i].first]);
-                }
-
-                // std::cerr << "\"" << normalized_tokens[i] << "\":\ncandidates_str = " << candidates_str << std::endl;
-                // std::cerr << "scores = " << candidates << std::endl;
-
-                std::vector<std::size_t> distances;
-                for (auto &candidate : candidates_str)
-                {
-                    distances.push_back(damerau_levenshtein(normalized_tokens[i], candidate));
-                }
-
-                auto result_index = std::distance(distances.begin(), std::min_element(distances.begin(), distances.end()));
-                normalized_tokens[i] = *normalized_tokens_ptr_not_null[i] = candidates_str[result_index];
-            }
-        }
-
-        // Print results
-        for (std::size_t i = 0; i < tokens.size(); i++)
-        {
-            if (normalized_tokens_ptr[i] != nullptr)
-            {
-                std::cout << *normalized_tokens_ptr[i];
-            }
-            else
-            {
-                std::cout << tokens[i];
-            }
-
-            std::cout << (i + 1 == tokens.size() ? ". " : " ");
-        }
-
-        for (auto &ptr : normalized_tokens_ptr_not_null)
-        {
-            delete ptr;
-        }
-    }
-    std::cout << std::endl;
 
     input.close();
 

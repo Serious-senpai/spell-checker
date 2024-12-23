@@ -25,6 +25,9 @@ namespace utils
         return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
     }
 
+    /**
+     * @brief Convert a string to lowercase.
+     */
     void to_lower(std::string &str)
     {
         for (std::size_t i = 0; i < str.size(); i++)
@@ -73,22 +76,22 @@ namespace utils
         if (bytes > 1024)
         {
             bytes /= 1024;
-            result = format("%.2LfKB", bytes);
+            result = format("%.2LfKiB", bytes);
 
             if (bytes > 1024)
             {
                 bytes /= 1024;
-                result = format("%.2LfMB", bytes);
+                result = format("%.2LfMiB", bytes);
 
                 if (bytes > 1024)
                 {
                     bytes /= 1024;
-                    result = format("%.2LfGB", bytes);
+                    result = format("%.2LfGiB", bytes);
 
                     if (bytes > 1024)
                     {
                         bytes /= 1024;
-                        result = format("%.2LfTB", bytes);
+                        result = format("%.2LfTiB", bytes);
                     }
                 }
             }

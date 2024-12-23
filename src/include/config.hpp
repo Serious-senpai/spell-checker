@@ -3,11 +3,10 @@
 #include "utils.hpp"
 
 #define EDIT_DISTANCE_THRESHOLD 3
-#define FREQUENCY_RECORD_LIMIT 500000
 
 /// @brief Combine multiple tokens into words.
 /// @param tokens The vector of tokens in the sentence.
-/// @param wordlist_set The wordlist.
+/// @param wordlist_set The wordlist used to recognize multi-token words.
 /// @param words The result vector to write the combined indices to.
 void combine_tokens(
     const std::vector<std::string> &tokens,
@@ -39,32 +38,31 @@ void combine_tokens(
     }
 }
 
-void remove_non_alphabet_characters(const std::string &token, std::string &result)
+/// @brief Check if a character is a tokenizable one (i.e. is a Vietnamese alphabet character).
+///
+/// We assume that multibyte characters are always valid (e.g. "à", "á", "ê", ...).
+/// Thus, we only need to check characters from U+0000 to U+007F.
+bool is_tokenizable_char(const char &c)
 {
-    result.clear();
-    for (auto &c : token)
-    {
-        if ((c & static_cast<char>(0x80)) || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+    return (c & static_cast<char>(0x80)) || std::isalpha(c);
+}
+
+/// @brief Remove non-alphabet characters from a token.
+void remove_non_alphabet_characters(std::string &token)
+{
+    auto end = std::remove_if(
+        token.begin(), token.end(),
+        [](const char &c)
         {
-            result.push_back(c);
-        }
-    }
+            return !is_tokenizable_char(c);
+        });
+
+    token.resize(std::distance(token.begin(), end));
 }
 
-bool is_valid_token(const std::string &token)
-{
-    // We assume that multibyte characters are always valid (e.g. "à", "á", "ê", ...).
-    // Thus, we only need to check characters from U+0000 to U+007F.
-    return !token.empty() &&
-           std::all_of(
-               // std::execution::par_unseq, // Profiled: actually makes it worse
-               token.begin(), token.end(),
-               [](const char &c)
-               {
-                   return (c & static_cast<char>(0x80)) || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-               });
-}
-
+/// @brief Readthe wordlist from the specified file location.
+/// @param wordlist_path The path to the wordlist file
+/// @return The wordlist
 std::vector<std::string> import_wordlist(const char *wordlist_path)
 {
     std::fstream input(wordlist_path, std::ios::in);
@@ -119,173 +117,3 @@ delete_variants(const std::vector<std::string> &wordlist)
 
     return variants;
 }
-
-template <bool _AllowInvalidChar = false>
-bool read_single_sentence(std::istream &input, std::vector<std::string> &tokens)
-{
-    if (!input)
-    {
-        return false;
-    }
-
-    std::string token;
-    tokens.clear();
-    while (input >> token)
-    {
-        bool end = false;
-        char last = token.back();
-        if (!(last & static_cast<char>(0x80)))
-        {
-            // Last byte represents a character.
-            if (!((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z')))
-            {
-                // Last character is not an alphabet character.
-                if constexpr (!_AllowInvalidChar)
-                {
-                    token.pop_back();
-                }
-
-                if (last == '.')
-                {
-                    end = true;
-                }
-            }
-        }
-
-        if (_AllowInvalidChar || is_valid_token(token))
-        {
-            tokens.push_back(token);
-        }
-
-        if (end)
-        {
-            break;
-        }
-    }
-
-    return true;
-}
-
-template <std::size_t _Limit>
-class tuple_frequency
-{
-private:
-    /// @brief Map to track the frequency of each tuple
-    std::unordered_map<uint64_t, std::list<std::pair<unsigned int, uint64_t>>::iterator> _map;
-
-    /// @brief List to track the frequency of each tuple
-    std::list<std::pair<unsigned int, uint64_t>> _nodes;
-
-    /// @brief Multiset to track the lowest frequency
-    std::multiset<unsigned int> _values;
-
-    /// @brief Remove elements with the lowest frequency, prioritize least recently used ones.
-    void _prune()
-    {
-        auto nodes_iter = _nodes.begin();
-
-        // Remove exactly 1 element after each iteration
-        for (auto iter = _values.begin(); size() > _Limit;)
-        {
-            const auto remove_val = *iter;
-            for (auto it = nodes_iter;; it++)
-            {
-                if (it->first == remove_val)
-                {
-                    _map.erase(it->second);        // Updated _map
-                    nodes_iter = _nodes.erase(it); // Updated _nodes
-                    break;
-                }
-            }
-
-            iter = _values.erase(iter); // Updated _values
-            if (*iter != remove_val)
-            {
-                nodes_iter = _nodes.begin();
-            }
-        }
-    }
-
-public:
-    using const_iterator = std::unordered_map<uint64_t, std::list<std::pair<unsigned int, uint64_t>>::iterator>::const_iterator;
-
-    void record(const std::unordered_map<uint64_t, unsigned int> &temp_record)
-    {
-        for (auto &[key, value] : temp_record)
-        {
-            auto iter = _map.find(key);
-            if (iter == _map.end())
-            {
-                _nodes.push_back(std::make_pair(value, key)); // Updated _nodes
-                _map[key] = std::prev(_nodes.end());          // Updated _map
-                _values.insert(value);                        // Updated _values
-            }
-            else
-            {
-                auto it = iter->second;
-
-                _values.erase(_values.find(it->first));
-
-                it->first += value;
-                _values.insert(it->first); // Updated _values
-
-                _nodes.splice(_nodes.end(), _nodes, it); // Updated _nodes
-                // No need to update _map since `_nodes.splice` does not invalidate any iterators.
-            }
-        }
-
-        _prune();
-    }
-
-    void record(const uint64_t &key, const unsigned int &increment)
-    {
-        auto iter = _map.find(key);
-        if (iter == _map.end())
-        {
-            _nodes.push_back(std::make_pair(increment, key)); // Updated _nodes
-            _map[key] = std::prev(_nodes.end());              // Updated _map
-            _values.insert(increment);                        // Updated _values
-
-            _prune();
-        }
-        else
-        {
-            auto it = iter->second;
-
-            _values.erase(_values.find(it->first));
-
-            it->first += increment;
-            _values.insert(it->first); // Updated _values
-
-            _nodes.splice(_nodes.end(), _nodes, it); // Updated _nodes
-            // No need to update _map since `_nodes.splice` does not invalidate any iterators.
-            // No need to perform pruning since the container size is unchanged.
-        }
-    }
-
-    std::size_t size() const
-    {
-        return _nodes.size();
-    }
-
-    unsigned int get(const uint64_t &key) const
-    {
-        auto iter = _map.find(key);
-        if (iter == _map.end())
-        {
-            return 0;
-        }
-
-        return iter->second->first;
-    }
-
-    const_iterator begin() const
-    {
-        return _map.begin();
-    }
-
-    const_iterator end() const
-    {
-        return _map.end();
-    }
-};
