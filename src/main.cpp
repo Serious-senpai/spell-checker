@@ -190,13 +190,15 @@ int main(int argc, char **argv)
         {
             reversed_token_map[index] = token;
         }
-        std::cout << "Found " << frequency.size() << " tuples" << std::endl;
+        std::cout << "Found " << frequency.size() << " tuples." << std::endl;
     }
     else
     {
         frequency_input.close();
         std::cout << "Frequency file \"" << frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
 
+        token_map.reserve(1 << 24);
+        frequency.reserve(1 << 24);
         learn(corpus_path, verbose, token_map, frequency);
 
         std::cout << "\nSaving " << frequency.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
@@ -207,21 +209,22 @@ int main(int argc, char **argv)
             reversed_token_map[index] = token;
         }
 
+        std::erase_if(
+            frequency,
+            [](const std::pair<uint64_t, unsigned int> &p)
+            { return p.second < 2; });
+
         std::fstream frequency_output(frequency_path, std::ios::out);
         for (auto &[mask, freq] : frequency)
         {
-            if (freq > 1)
-            {
-                auto first = mask >> 32, second = mask & 0xFFFFFFFF;
-                frequency_output << reversed_token_map[first] << ' ' << reversed_token_map[second] << ' ' << freq << '\n';
-            }
+            auto first = mask >> 32, second = mask & 0xFFFFFFFF;
+            frequency_output << reversed_token_map[first] << ' ' << reversed_token_map[second] << ' ' << freq << '\n';
         }
 
         frequency_output.close();
     }
 
-    // std::cout << "Building BK-tree from wordlist..." << std::endl;
-    // BKTree bk_tree(wordlist);
+    std::cout << "Hashmap load factor = " << frequency.load_factor() << " with " << frequency.bucket_count() << " buckets." << std::endl;
 
     auto iter = std::max_element(
         frequency.begin(), frequency.end(),
