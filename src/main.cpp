@@ -69,20 +69,20 @@ void learn(
             utils::to_lower(token);
             tokens.push_back(tokenize(token.substr(1), token_map));
         }
-        else if (mask == 0b110)
-        {
-            token.pop_back();
-            utils::to_lower(token);
-
-            tokens.push_back(tokenize(token, token_map));
-            process_tokens();
-        }
         else
         {
+            if (mask == 0b110)
+            {
+                token.pop_back();
+                utils::to_lower(token);
+
+                tokens.push_back(tokenize(token, token_map));
+            }
+
             process_tokens();
         }
 
-        if (verbose && !(++counter & 0x3FFFF))
+        if (verbose && !(++counter & 0xFFFFF))
         {
             const auto size = input_ptr->tellg();
             auto speed = 1e6l * size;
