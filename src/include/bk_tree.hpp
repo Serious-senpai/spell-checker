@@ -1,13 +1,16 @@
-#include "distance.hpp"
+#pragma once
 
-class _BKTreeNode
+#include "distance.hpp"
+#include "utils.hpp"
+
+class __BKTreeNode
 {
 public:
     std::string word;
-    std::map<std::size_t, _BKTreeNode *> children;
+    std::map<std::size_t, __BKTreeNode *> children;
 
-    _BKTreeNode(const std::string &w) : word(w) {}
-    ~_BKTreeNode()
+    __BKTreeNode(const std::string &w) : word(w) {}
+    ~__BKTreeNode()
     {
         for (auto &[_, child] : children)
         {
@@ -19,14 +22,15 @@ public:
 class BKTree
 {
 private:
-    _BKTreeNode *_root = nullptr;
+    __BKTreeNode *_root = nullptr;
 
 public:
-    BKTree(const std::vector<std::string> &wordlist)
+    template <typename _InputIter, utils::is_input_iterator_t<_InputIter> = true>
+    BKTree(_InputIter __first, _InputIter __last)
     {
-        for (const std::string &word : wordlist)
+        for (; __first != __last; __first++)
         {
-            add(word);
+            add(*__first);
         }
     }
 
@@ -39,18 +43,18 @@ public:
     {
         if (_root == nullptr)
         {
-            _root = new _BKTreeNode(word);
+            _root = new __BKTreeNode(word);
             return;
         }
 
-        _BKTreeNode *current = _root;
+        __BKTreeNode *current = _root;
         while (true)
         {
             std::size_t distance = damerau_levenshtein(current->word, word);
 
             if (current->children.find(distance) == current->children.end())
             {
-                current->children[distance] = new _BKTreeNode(word);
+                current->children[distance] = new __BKTreeNode(word);
                 break;
             }
 
@@ -64,7 +68,7 @@ public:
         std::vector<std::string> results;
         if (_root != nullptr)
         {
-            std::vector<std::pair<_BKTreeNode *, bool>> stack = {std::make_pair(_root, false)};
+            std::vector<std::pair<__BKTreeNode *, bool>> stack = {std::make_pair(_root, false)};
             while (!stack.empty())
             {
                 auto [ptr, prune] = stack.back();
@@ -83,7 +87,7 @@ public:
                     auto diff = d_child > d ? d_child - d : d - d_child;
                     if (diff < max_distance || !prune)
                     {
-                        stack.push_back(std::make_pair(child, prune));
+                        stack.emplace_back(child, prune);
                     }
                 }
             }

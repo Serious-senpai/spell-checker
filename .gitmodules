@@ -1,0 +1,3 @@
+[submodule "extern/VSEC"]
+	path = extern/VSEC
+	url = https://github.com/VSEC2021/VSEC

@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,6 +33,9 @@ jobs:
       - name: Compile executable
         run: scripts/build.sh
 
+      - name: Generate input file
+        run: python scripts/input.py
+
       - name: Run executable with piped corpus
         timeout-minutes: 330
         run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/main.exe --corpus -
@@ -42,4 +47,5 @@ jobs:
           name: results
           path: |
             data/frequency.txt
+            data/output.txt
             data/screenshot.png
