@@ -467,7 +467,12 @@ void inference(
 
                 if (mask != 0b110)
                 {
-                    output << ' ' << token;
+                    if (!is_first_token_group)
+                    {
+                        output << ' ';
+                    }
+                    output << token;
+                    is_first_token_group = false;
                 }
             }
         }
