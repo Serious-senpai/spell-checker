@@ -198,7 +198,7 @@ void inference(
     std::map<uint64_t, unsigned int> frequency_backward;
     for (const auto &[mask, freq] : frequency)
     {
-        frequency_backward[(static_cast<uint64_t>(mask & 0xFFFFFFFF) << 32) | (mask >> 32)] = freq;
+        frequency_backward[std::rotl(mask, 32)] = freq;
     }
 
     const auto process_tokens = [&]()
@@ -260,14 +260,21 @@ void inference(
         {
             if (inspection[i])
             {
+                // std::cerr << "Calculating case type for \"" << tokens[i] << "\"..." << std::endl;
                 if (utils::is_upper(tokens[i].data()))
                 {
                     // The first character is uppercase
-                    bool has_upper = false, all_upper = true;
+                    bool skip_first_flag = true, has_upper = false, all_upper = true;
                     for (auto &c : tokens[i])
                     {
                         if (utils::is_utf8_char(&c))
                         {
+                            if (skip_first_flag)
+                            {
+                                skip_first_flag = false;
+                                continue;
+                            }
+
                             if (utils::is_upper(&c))
                             {
                                 has_upper = true;
@@ -410,38 +417,50 @@ void inference(
         tokens.clear();
     };
 
-    while (input >> token)
+    std::string line;
+    while (std::getline(input, line))
     {
-        // `token` has at least 1 character
-        bool first_valid = is_tokenizable_char(token.front());
-        bool mid_valid = std::all_of(token.begin() + 1, token.end() - 1, is_tokenizable_char);
-        bool last_valid = is_tokenizable_char(token.back());
+        std::istringstream buffer(line);
+        while (buffer >> token)
+        {
+            // `token` has at least 1 character
+            bool first_valid = is_tokenizable_char(token.front());
+            bool mid_valid = std::all_of(token.begin() + 1, token.end() - 1, is_tokenizable_char);
+            bool last_valid = is_tokenizable_char(token.back());
 
-        auto mask = (first_valid << 2) | (mid_valid << 1) | last_valid;
-        // std::cerr << "Examining \"" << token << "\", mask = " << first_valid << mid_valid << last_valid << std::endl;
-        if (mask == 0b111)
-        {
-            tokens.push_back(token);
-        }
-        else if (mask == 0b011)
-        {
-            process_tokens();
-            tokens.push_back(token);
-        }
-        else
-        {
-            if (mask == 0b110)
+            auto mask = (first_valid << 2) | (mid_valid << 1) | last_valid;
+            // std::cerr << "Examining \"" << token << "\", mask = " << first_valid << mid_valid << last_valid << std::endl;
+            if (mask == 0b111)
             {
                 tokens.push_back(token);
             }
+            else if (mask == 0b011)
+            {
+                process_tokens();
+                tokens.push_back(token);
+            }
+            else
+            {
+                if (mask == 0b110)
+                {
+                    tokens.push_back(token);
+                }
 
+                process_tokens();
+
+                if (mask != 0b110)
+                {
+                    output << token << ' ';
+                }
+            }
+        }
+
+        if (!tokens.empty())
+        {
             process_tokens();
         }
-    }
 
-    if (!tokens.empty())
-    {
-        process_tokens();
+        output << '\n';
     }
 }
 
@@ -522,6 +541,10 @@ int main(int argc, char **argv)
         else if (std::strcmp(argv[i], "-v") == 0)
         {
             verbose = true;
+        }
+        else
+        {
+            throw std::invalid_argument(utils::format("Unrecognized argument \"%s\"", argv[i]));
         }
     }
 
