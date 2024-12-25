@@ -2,6 +2,18 @@
 
 #include "standard.hpp"
 
+namespace std
+{
+    template <>
+    struct less<vector<unsigned char>>
+    {
+        bool operator()(const vector<unsigned char> &lhs, const vector<unsigned char> &rhs) const
+        {
+            return lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), less<unsigned char>());
+        }
+    };
+}
+
 namespace utils
 {
     template <typename _Iterator>
