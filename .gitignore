@@ -1,10 +1,8 @@
 .venv/
 .vscode/
 build/
+data/
 
 run.bat
-data/corpus.txt
-data/corpus.zip
-data/frequency.txt
-data/input.txt
-data/output.txt
+
+!data/wordlist.txt

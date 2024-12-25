@@ -191,17 +191,17 @@ void inference(
     const std::unordered_set<std::string> &wordlist_set,
     const BKTree &bktree)
 {
-    std::string token;
-    std::vector<std::string> tokens;
-
+    std::cout << "Constructing support binary search trees..." << std::endl;
     std::map<uint64_t, unsigned int> frequency_forward(frequency.begin(), frequency.end());
     std::map<uint64_t, unsigned int> frequency_backward;
     for (const auto &[mask, freq] : frequency)
     {
         frequency_backward[std::rotl(mask, 32)] = freq;
     }
+    std::cout << "Constructed binary search trees of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
 
-    const auto process_tokens = [&]()
+    std::vector<std::string> tokens;
+    const auto process_tokens = [&](bool prepend_space)
     {
         // std::cerr << "Processing " << tokens << std::endl;
         if (tokens.empty())
@@ -220,7 +220,7 @@ void inference(
         if (!first_valid)
         {
             // We will have to prepend `first_char` later.
-            tokens.front().erase(0);
+            tokens.front().erase(0, 1);
         }
         if (!last_valid)
         {
@@ -324,9 +324,10 @@ void inference(
                     if (iter != token_map.end())
                     {
                         uint64_t tokenized = iter->second;
-                        for (auto it = frequency_forward.lower_bound(tokenized << 32);
-                             it != frequency_forward.end() && (it->first >> 32) == tokenized;
-                             it++)
+                        for (
+                            auto it = frequency_forward.lower_bound(tokenized << 32);
+                            it != frequency_forward.end() && (it->first >> 32) == tokenized;
+                            it++)
                         {
                             scores[it->first & 0xFFFFFFFF] += it->second;
                         }
@@ -339,9 +340,10 @@ void inference(
                     if (iter != token_map.end())
                     {
                         uint64_t tokenized = iter->second;
-                        for (auto it = frequency_backward.lower_bound(tokenized << 32);
-                             it != frequency_backward.end() && (it->first >> 32) == tokenized;
-                             it++)
+                        for (
+                            auto it = frequency_backward.lower_bound(tokenized << 32);
+                            it != frequency_backward.end() && (it->first >> 32) == tokenized;
+                            it++)
                         {
                             scores[it->first & 0xFFFFFFFF] += it->second;
                         }
@@ -410,16 +412,23 @@ void inference(
             tokens.back().push_back(last_char);
         }
 
-        for (const auto &token : tokens)
+        if (prepend_space)
         {
-            output << token << ' ';
+            output << ' ';
         }
+        output << tokens[0];
+        for (std::size_t i = 1; i < tokens.size(); i++)
+        {
+            output << ' ' << tokens[i];
+        }
+
         tokens.clear();
     };
 
-    std::string line;
+    std::string line, token;
     while (std::getline(input, line))
     {
+        bool is_first_token_group = true;
         std::istringstream buffer(line);
         while (buffer >> token)
         {
@@ -436,7 +445,9 @@ void inference(
             }
             else if (mask == 0b011)
             {
-                process_tokens();
+                process_tokens(!is_first_token_group);
+                is_first_token_group = false;
+
                 tokens.push_back(token);
             }
             else
@@ -446,18 +457,19 @@ void inference(
                     tokens.push_back(token);
                 }
 
-                process_tokens();
+                process_tokens(!is_first_token_group);
+                is_first_token_group = false;
 
                 if (mask != 0b110)
                 {
-                    output << token << ' ';
+                    output << ' ' << token;
                 }
             }
         }
 
         if (!tokens.empty())
         {
-            process_tokens();
+            process_tokens(!is_first_token_group);
         }
 
         output << '\n';

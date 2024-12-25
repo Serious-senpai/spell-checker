@@ -22,4 +22,5 @@ with open(ROOT / "extern" / "VSEC" / "Dataset" / "VSEC.jsonl", "r", encoding="ut
     with open(ROOT / "data" / "input.txt", "w", encoding="utf-8") as writer:
         for line in reader:
             data: Data = json.loads(line)
-            writer.write(data["text"] + "\n")
+            writer.write(data["text"])
+            writer.write("\n")

@@ -83,7 +83,7 @@ namespace std
         }
     }
 
-    template <typename CharT, typename T, std::size_t N>
+    template <typename CharT, typename T, size_t N>
     basic_ostream<CharT> &operator<<(basic_ostream<CharT> &stream, const array<T, N> &_v)
     {
         stream << "[";
@@ -186,4 +186,14 @@ namespace std
     {
         return stream << "(" << _p.first << ", " << _p.second << ")";
     }
+
+    template <>
+    struct less<vector<unsigned char>>
+    {
+        bool operator()(const vector<unsigned char> &lhs, const vector<unsigned char> &rhs) const
+        {
+            return lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), less<unsigned char>());
+        }
+    };
+
 }
