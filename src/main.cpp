@@ -176,8 +176,8 @@ void learn(
             auto speed = 1e6l * size;
             speed /= std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_offset).count();
 
-            std::cerr << "Reading corpus: " << utils::memory_size(size);
-            std::cerr << " (" << utils::memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
+            std::cout << "Reading corpus: " << utils::memory_size(size);
+            std::cout << " (" << utils::memory_size(speed) << "/s, tuple count = " << frequency.size() << ")      \r" << std::flush;
         }
     }
 }
@@ -201,12 +201,12 @@ void inference(
     std::cout << "Constructed binary search trees of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
 
     std::vector<std::string> tokens;
-    const auto process_tokens = [&](bool prepend_space)
+    const auto process_tokens = [&](bool prepend_space) -> bool
     {
         // std::cerr << "Processing " << tokens << std::endl;
         if (tokens.empty())
         {
-            return;
+            return false;
         }
 
         // Get the first and last byte of the token group.
@@ -423,6 +423,7 @@ void inference(
         }
 
         tokens.clear();
+        return true;
     };
 
     std::string line, token;
@@ -445,8 +446,10 @@ void inference(
             }
             else if (mask == 0b011)
             {
-                process_tokens(!is_first_token_group);
-                is_first_token_group = false;
+                if (process_tokens(!is_first_token_group))
+                {
+                    is_first_token_group = false;
+                }
 
                 tokens.push_back(token);
             }
@@ -457,8 +460,10 @@ void inference(
                     tokens.push_back(token);
                 }
 
-                process_tokens(!is_first_token_group);
-                is_first_token_group = false;
+                if (process_tokens(!is_first_token_group))
+                {
+                    is_first_token_group = false;
+                }
 
                 if (mask != 0b110)
                 {
