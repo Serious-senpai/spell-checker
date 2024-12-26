@@ -184,22 +184,17 @@ void learn(
 }
 
 void inference(
-    std::fstream &input,
-    std::fstream &output,
+    const Namespace &argparse,
     const std::unordered_map<std::string, uint32_t> &token_map,
     const std::vector<std::string> &reversed_token_map,
-    const std::unordered_map<uint64_t, unsigned int> &frequency,
+    const std::map<uint64_t, unsigned int> &frequency_forward,
+    const std::map<uint64_t, unsigned int> &frequency_backward,
     const std::unordered_set<std::string> &wordlist_set,
     const BKTree &bktree)
 {
-    std::cout << "Constructing support binary search trees..." << std::endl;
-    std::map<uint64_t, unsigned int> frequency_forward(frequency.begin(), frequency.end());
-    std::map<uint64_t, unsigned int> frequency_backward;
-    for (const auto &[mask, freq] : frequency)
-    {
-        frequency_backward[std::rotl(mask, 32)] = freq;
-    }
-    std::cout << "Constructed binary search trees of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
+    std::fstream input(argparse.input_path, std::ios::in);
+    std::fstream output(argparse.output_path, std::ios::out);
+    std::cout << "Reading \"" << argparse.input_path << "\" and writing to \"" << argparse.output_path << "\"..." << std::endl;
 
     std::vector<std::string> tokens;
     const auto process_tokens = [&](bool prepend_space) -> bool
@@ -318,7 +313,7 @@ void inference(
         {
             if (inspection[i])
             {
-                std::unordered_map<uint32_t, unsigned int> scores;
+                std::unordered_map<uint32_t, unsigned int> left, right;
                 if (i > 0)
                 {
                     auto iter = token_map.find(lowercase[i - 1]);
@@ -330,7 +325,7 @@ void inference(
                             it != frequency_forward.end() && (it->first >> 32) == tokenized;
                             it++)
                         {
-                            scores[it->first & 0xFFFFFFFF] += it->second;
+                            left[it->first & 0xFFFFFFFF] = it->second;
                         }
                     }
                 }
@@ -346,12 +341,25 @@ void inference(
                             it != frequency_backward.end() && (it->first >> 32) == tokenized;
                             it++)
                         {
-                            scores[it->first & 0xFFFFFFFF] += it->second;
+                            right[it->first & 0xFFFFFFFF] += it->second;
                         }
                     }
                 }
 
-                std::vector<std::pair<unsigned int, uint32_t>> candidates;
+                std::unordered_map<uint32_t, unsigned long long> scores;
+                for (const auto &[candidate, score] : left)
+                {
+                    scores[candidate] = static_cast<unsigned long long>(score + 1) * static_cast<unsigned long long>(right[candidate] + 1);
+                }
+                for (const auto &[candidate, score] : right)
+                {
+                    if (left.find(candidate) == left.end())
+                    {
+                        scores[candidate] = score + 1;
+                    }
+                }
+
+                std::vector<std::pair<unsigned long long, uint32_t>> candidates;
                 for (const auto &[index, score] : scores)
                 {
                     candidates.emplace_back(score, index);
@@ -366,7 +374,7 @@ void inference(
                 {
                     std::string word = reversed_token_map[index];
                     auto d = damerau_levenshtein(lowercase[i], word);
-                    // std::cerr << "Testing \"" << word << "\"... in place of \"" << lowercase[i] << "\", d = " << d << std::endl;
+                    // std::cerr << "Testing \"" << word << "\"... in place of \"" << lowercase[i] << "\", d = " << d << ", score = " << _ << std::endl;
                     if (d < min_distance)
                     {
                         min_distance = d;
@@ -485,6 +493,9 @@ void inference(
 
         output << '\n';
     }
+
+    input.close();
+    output.close();
 }
 
 int main(int argc, char **argv)
@@ -569,20 +580,54 @@ int main(int argc, char **argv)
     const auto wordlist = import_wordlist(argparse.wordlist_path);
     BKTree bktree(wordlist.begin(), wordlist.end());
 
-    std::cout << "Reading \"" << argparse.input_path << "\"..." << std::endl;
-    std::fstream input(argparse.input_path, std::ios::in);
-    std::fstream output(argparse.output_path, std::ios::out);
+    std::cout << "Constructing support binary search trees..." << std::endl;
+    std::map<uint64_t, unsigned int> frequency_forward(frequency.begin(), frequency.end());
+    std::map<uint64_t, unsigned int> frequency_backward;
+    for (const auto &[mask, freq] : frequency)
+    {
+        frequency_backward[std::rotl(mask, 32)] = freq;
+    }
+    std::cout << "Constructed binary search trees of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
 
-    inference(
-        input,
-        output,
-        token_map,
-        reversed_token_map,
-        frequency,
-        std::unordered_set<std::string>(wordlist.begin(), wordlist.end()),
-        bktree);
-
-    input.close();
+    if (argparse.interactive)
+    {
+        while (true)
+        {
+            std::string command;
+            std::cout << "command>" << std::flush;
+            std::getline(std::cin, command);
+            if (command == "exit")
+            {
+                break;
+            }
+            else if (command == "run")
+            {
+                inference(
+                    argparse,
+                    token_map,
+                    reversed_token_map,
+                    frequency_forward,
+                    frequency_backward,
+                    std::unordered_set<std::string>(wordlist.begin(), wordlist.end()),
+                    bktree);
+            }
+            else
+            {
+                std::cout << "Unknown command \"" << command << "\"" << std::endl;
+            }
+        }
+    }
+    else
+    {
+        inference(
+            argparse,
+            token_map,
+            reversed_token_map,
+            frequency_forward,
+            frequency_backward,
+            std::unordered_set<std::string>(wordlist.begin(), wordlist.end()),
+            bktree);
+    }
 
     return 0;
 }

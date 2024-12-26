@@ -19,6 +19,7 @@ public:
          *output_path = _default_output_path;
 
     bool verbose = false;
+    bool interactive = false;
 
     Namespace(int argc, char **argv)
     {
@@ -82,6 +83,10 @@ public:
             else if (std::strcmp(argv[i], "-v") == 0)
             {
                 verbose = true;
+            }
+            else if (std::strcmp(argv[i], "--interactive") == 0)
+            {
+                interactive = true;
             }
             else
             {
