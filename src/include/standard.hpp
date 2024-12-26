@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <csignal>
 #include <cstring>
 #include <deque>
 #include <execution>

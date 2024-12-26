@@ -187,8 +187,8 @@ void inference(
     const Namespace &argparse,
     const std::unordered_map<std::string, uint32_t> &token_map,
     const std::vector<std::string> &reversed_token_map,
-    const std::map<uint64_t, unsigned int> &frequency_forward,
-    const std::map<uint64_t, unsigned int> &frequency_backward,
+    const std::vector<std::pair<uint64_t, unsigned int>> &frequency_forward,
+    const std::vector<std::pair<uint64_t, unsigned int>> &frequency_backward,
     const std::unordered_set<std::string> &wordlist_set,
     const BKTree &bktree)
 {
@@ -319,9 +319,12 @@ void inference(
                     auto iter = token_map.find(lowercase[i - 1]);
                     if (iter != token_map.end())
                     {
-                        uint64_t tokenized = iter->second;
+                        const uint64_t tokenized = iter->second;
                         for (
-                            auto it = frequency_forward.lower_bound(tokenized << 32);
+                            auto it = std::lower_bound(
+                                frequency_forward.begin(),
+                                frequency_forward.end(),
+                                std::make_pair<uint64_t, unsigned int>(tokenized << 32, 0));
                             it != frequency_forward.end() && (it->first >> 32) == tokenized;
                             it++)
                         {
@@ -335,9 +338,12 @@ void inference(
                     auto iter = token_map.find(lowercase[i + 1]);
                     if (iter != token_map.end())
                     {
-                        uint64_t tokenized = iter->second;
+                        const uint64_t tokenized = iter->second;
                         for (
-                            auto it = frequency_backward.lower_bound(tokenized << 32);
+                            auto it = std::lower_bound(
+                                frequency_backward.begin(),
+                                frequency_backward.end(),
+                                std::make_pair<uint64_t, unsigned int>(tokenized << 32, 0));
                             it != frequency_backward.end() && (it->first >> 32) == tokenized;
                             it++)
                         {
@@ -349,13 +355,15 @@ void inference(
                 std::unordered_map<uint32_t, unsigned long long> scores;
                 for (const auto &[candidate, score] : left)
                 {
-                    scores[candidate] = static_cast<unsigned long long>(score + 1) * static_cast<unsigned long long>(right[candidate] + 1);
+                    const auto x = static_cast<unsigned long long>(score);
+                    const auto y = static_cast<unsigned long long>(right[candidate]);
+                    scores[candidate] = x + y + utils::sqrt(x * y);
                 }
                 for (const auto &[candidate, score] : right)
                 {
                     if (left.find(candidate) == left.end())
                     {
-                        scores[candidate] = score + 1;
+                        scores[candidate] = score;
                     }
                 }
 
@@ -580,22 +588,37 @@ int main(int argc, char **argv)
     const auto wordlist = import_wordlist(argparse.wordlist_path);
     BKTree bktree(wordlist.begin(), wordlist.end());
 
-    std::cout << "Constructing support binary search trees..." << std::endl;
-    std::map<uint64_t, unsigned int> frequency_forward(frequency.begin(), frequency.end());
-    std::map<uint64_t, unsigned int> frequency_backward;
+    std::cout << "Constructing support binary search arrays..." << std::endl;
+
+    std::vector<std::pair<uint64_t, unsigned int>> frequency_forward(frequency.begin(), frequency.end());
+    std::sort(frequency_forward.begin(), frequency_forward.end());
+
+    std::vector<std::pair<uint64_t, unsigned int>> frequency_backward;
     for (const auto &[mask, freq] : frequency)
     {
-        frequency_backward[std::rotl(mask, 32)] = freq;
+        frequency_backward.emplace_back(std::rotl(mask, 32), freq);
     }
-    std::cout << "Constructed binary search trees of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
+    std::sort(frequency_backward.begin(), frequency_backward.end());
+
+    std::cout << "Constructed binary search arrays of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
 
     if (argparse.interactive)
     {
+        std::signal(SIGINT, SIG_IGN);
+        std::signal(SIGTERM, SIG_IGN);
+
         while (true)
         {
             std::string command;
             std::cout << "command>" << std::flush;
             std::getline(std::cin, command);
+            if (std::cin.fail() || std::cin.eof())
+            {
+                std::cin.clear();
+                std::cout << std::endl;
+                continue;
+            }
+
             if (command == "exit")
             {
                 break;
