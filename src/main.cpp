@@ -4,6 +4,7 @@
 
 #define CONTEXT_AWARE_THRESHOLD 1000
 #define EDIT_DISTANCE_THRESHOLD 3
+#define CONTEXT_LOSS_FACTOR 0.8
 
 /**
  * @brief Combine multiple tokens into words.
@@ -374,16 +375,16 @@ void inference(
                 std::sort(candidates.begin(), candidates.end(), std::greater<>());
                 candidates.resize(std::min<std::size_t>(candidates.size(), CONTEXT_AWARE_THRESHOLD));
 
-                std::size_t min_distance = EDIT_DISTANCE_THRESHOLD;
+                double max_fitness = std::numeric_limits<double>::min();
                 uint32_t result = static_cast<uint32_t>(-1);
-                for (const auto &[_, index] : candidates)
+                for (const auto &[score, index] : candidates)
                 {
                     std::string word = reversed_token_map[index];
                     auto d = damerau_levenshtein(lowercase[i], word);
-                    // std::cerr << "Testing \"" << word << "\"... in place of \"" << lowercase[i] << "\", d = " << d << ", score = " << _ << std::endl;
-                    if (d < min_distance)
+                    auto fitness = static_cast<double>(score) * std::pow(CONTEXT_LOSS_FACTOR, d);
+                    if (d < EDIT_DISTANCE_THRESHOLD && fitness > max_fitness)
                     {
-                        min_distance = d;
+                        max_fitness = fitness;
                         result = index;
                     }
                 }
