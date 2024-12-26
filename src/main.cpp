@@ -1,5 +1,4 @@
 #include <argparse.hpp>
-#include <bk_tree.hpp>
 #include <distance.hpp>
 #include <utils.hpp>
 
@@ -189,8 +188,7 @@ void inference(
     const std::vector<std::string> &reversed_token_map,
     const std::vector<std::pair<uint64_t, unsigned int>> &frequency_forward,
     const std::vector<std::pair<uint64_t, unsigned int>> &frequency_backward,
-    const std::unordered_set<std::string> &wordlist_set,
-    const BKTree &bktree)
+    const std::unordered_set<std::string> &wordlist_set)
 {
     std::fstream input(argparse.input_path, std::ios::in);
     std::fstream output(argparse.output_path, std::ios::out);
@@ -584,10 +582,6 @@ int main(int argc, char **argv)
         { return lhs.second < rhs.second; });
 
     std::cout << "Most frequent tuple: \"" << reversed_token_map[iter->first >> 32] << ' ' << reversed_token_map[iter->first & 0xFFFFFFFF] << "\" with a count of " << iter->second << std::endl;
-
-    const auto wordlist = import_wordlist(argparse.wordlist_path);
-    BKTree bktree(wordlist.begin(), wordlist.end());
-
     std::cout << "Constructing support binary search arrays..." << std::endl;
 
     std::vector<std::pair<uint64_t, unsigned int>> frequency_forward(frequency.begin(), frequency.end());
@@ -602,6 +596,7 @@ int main(int argc, char **argv)
 
     std::cout << "Constructed binary search arrays of size " << frequency_forward.size() << " and " << frequency_backward.size() << std::endl;
 
+    const auto wordlist = import_wordlist(argparse.wordlist_path);
     if (argparse.interactive)
     {
         std::signal(SIGINT, SIG_IGN);
@@ -631,8 +626,7 @@ int main(int argc, char **argv)
                     reversed_token_map,
                     frequency_forward,
                     frequency_backward,
-                    std::unordered_set<std::string>(wordlist.begin(), wordlist.end()),
-                    bktree);
+                    std::unordered_set<std::string>(wordlist.begin(), wordlist.end()));
             }
             else
             {
@@ -648,8 +642,7 @@ int main(int argc, char **argv)
             reversed_token_map,
             frequency_forward,
             frequency_backward,
-            std::unordered_set<std::string>(wordlist.begin(), wordlist.end()),
-            bktree);
+            std::unordered_set<std::string>(wordlist.begin(), wordlist.end()));
     }
 
     return 0;
