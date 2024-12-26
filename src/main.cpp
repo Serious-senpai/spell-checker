@@ -4,7 +4,7 @@
 
 #define CONTEXT_AWARE_THRESHOLD 1000
 #define EDIT_DISTANCE_THRESHOLD 3
-#define CONTEXT_LOSS_FACTOR 0.8
+#define CONTEXT_LOSS_FACTOR 0.1
 
 /**
  * @brief Combine multiple tokens into words.
