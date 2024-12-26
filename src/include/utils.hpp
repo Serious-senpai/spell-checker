@@ -102,8 +102,7 @@ namespace utils
                     0xb0,
                 };
 
-                ptr++;
-                if (is_lower.find(static_cast<unsigned char>(*ptr)) != is_lower.end())
+                if (is_lower.find(static_cast<unsigned char>(*++ptr)) != is_lower.end())
                 {
                     (*ptr)--;
                 }
