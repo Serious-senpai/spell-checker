@@ -1,3 +1,4 @@
+#include <argparse.hpp>
 #include <bk_tree.hpp>
 #include <distance.hpp>
 #include <utils.hpp>
@@ -486,89 +487,10 @@ void inference(
     }
 }
 
-char default_wordlist_path[] = "data/wordlist.txt";
-char default_corpus_path[] = "data/corpus.txt";
-char default_frequency_path[] = "data/frequency.txt";
-char default_input_path[] = "data/input.txt";
-char default_output_path[] = "data/output.txt";
-
 int main(int argc, char **argv)
 {
     std::ios_base::sync_with_stdio(false);
-
-    char *wordlist_path = default_wordlist_path,
-         *corpus_path = default_corpus_path,
-         *frequency_path = default_frequency_path,
-         *input_path = default_input_path,
-         *output_path = default_output_path;
-    bool verbose = false;
-
-    for (int i = 1; i < argc; i++)
-    {
-        if (std::strcmp(argv[i], "--wordlist") == 0)
-        {
-            if (++i < argc)
-            {
-                wordlist_path = argv[i];
-            }
-            else
-            {
-                throw std::out_of_range("Expected path to wordlist file after \"--wordlist\"");
-            }
-        }
-        else if (std::strcmp(argv[i], "--corpus") == 0)
-        {
-            if (++i < argc)
-            {
-                corpus_path = argv[i];
-            }
-            else
-            {
-                throw std::out_of_range("Expected path to corpus file after \"--corpus\"");
-            }
-        }
-        else if (std::strcmp(argv[i], "--frequency") == 0)
-        {
-            if (++i < argc)
-            {
-                frequency_path = argv[i];
-            }
-            else
-            {
-                throw std::out_of_range("Expected path to frequency file after \"--frequency\"");
-            }
-        }
-        else if (std::strcmp(argv[i], "--input") == 0)
-        {
-            if (++i < argc)
-            {
-                input_path = argv[i];
-            }
-            else
-            {
-                throw std::out_of_range("Expected path to input file after \"--input\"");
-            }
-        }
-        else if (std::strcmp(argv[i], "--output") == 0)
-        {
-            if (++i < argc)
-            {
-                output_path = argv[i];
-            }
-            else
-            {
-                throw std::out_of_range("Expected path to output file after \"--output\"");
-            }
-        }
-        else if (std::strcmp(argv[i], "-v") == 0)
-        {
-            verbose = true;
-        }
-        else
-        {
-            throw std::invalid_argument(utils::format("Unrecognized argument \"%s\"", argv[i]));
-        }
-    }
+    Namespace argparse(argc, argv);
 
     std::unordered_map<std::string, uint32_t> token_map;
     std::vector<std::string> reversed_token_map;
@@ -583,10 +505,10 @@ int main(int argc, char **argv)
     };
 
     std::unordered_map<uint64_t, unsigned int> frequency;
-    std::fstream frequency_input(frequency_path, std::ios::in);
+    std::fstream frequency_input(argparse.frequency_path, std::ios::in);
     if (frequency_input)
     {
-        std::cout << "Importing data from \"" << frequency_path << "\"..." << std::endl;
+        std::cout << "Importing data from \"" << argparse.frequency_path << "\"..." << std::endl;
 
         std::string token;
         while (frequency_input >> token)
@@ -610,13 +532,13 @@ int main(int argc, char **argv)
     else
     {
         frequency_input.close();
-        std::cout << "Frequency file \"" << frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
+        std::cout << "Frequency file \"" << argparse.frequency_path << "\" cannot be found. Learning from corpus..." << std::endl;
 
         token_map.reserve(1 << 24);
         frequency.reserve(1 << 24);
-        learn(corpus_path, verbose, token_map, frequency);
+        learn(argparse.corpus_path, argparse.verbose, token_map, frequency);
 
-        std::cout << "\nSaving " << frequency.size() << " tuples to \"" << frequency_path << "\"..." << std::endl;
+        std::cout << "\nSaving " << frequency.size() << " tuples to \"" << argparse.frequency_path << "\"..." << std::endl;
 
         index_tokens();
 
@@ -625,7 +547,7 @@ int main(int argc, char **argv)
             [](const std::pair<uint64_t, unsigned int> &p)
             { return p.second < 3; });
 
-        std::fstream frequency_output(frequency_path, std::ios::out);
+        std::fstream frequency_output(argparse.frequency_path, std::ios::out);
         for (auto &[mask, freq] : frequency)
         {
             auto first = mask >> 32, second = mask & 0xFFFFFFFF;
@@ -644,12 +566,12 @@ int main(int argc, char **argv)
 
     std::cout << "Most frequent tuple: \"" << reversed_token_map[iter->first >> 32] << ' ' << reversed_token_map[iter->first & 0xFFFFFFFF] << "\" with a count of " << iter->second << std::endl;
 
-    const auto wordlist = import_wordlist(wordlist_path);
+    const auto wordlist = import_wordlist(argparse.wordlist_path);
     BKTree bktree(wordlist.begin(), wordlist.end());
 
-    std::cout << "Reading \"" << input_path << "\"..." << std::endl;
-    std::fstream input(input_path, std::ios::in);
-    std::fstream output(output_path, std::ios::out);
+    std::cout << "Reading \"" << argparse.input_path << "\"..." << std::endl;
+    std::fstream input(argparse.input_path, std::ios::in);
+    std::fstream output(argparse.output_path, std::ios::out);
 
     inference(
         input,
