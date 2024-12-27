@@ -12,8 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        max-candidates-per-token: [200, 500, 800, 1000]
-        edit-penalty-factor: [0.005, 0.01, 0.015, 0.02, 0.025, 0.03]
+        max-candidates-per-token: [1000]
+        edit-penalty-factor: [0.01]
 
     steps:
       - name: Checkout repository
@@ -55,7 +55,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: results-${{ matrix.edit-penalty-factor }}
+          name: results-${{ matrix.max-candidates-per-token }}-${{ matrix.edit-penalty-factor }}
           path: |
             data/frequency.txt
             data/output.txt
