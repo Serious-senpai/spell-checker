@@ -2,10 +2,6 @@
 #include <distance.hpp>
 #include <utils.hpp>
 
-#define CONTEXT_AWARE_THRESHOLD 1000
-#define EDIT_DISTANCE_THRESHOLD 3
-#define CONTEXT_LOSS_FACTOR 0.05
-
 /**
  * @brief Combine multiple tokens into words.
  * @param tokens The vector of tokens in the sentence.
@@ -373,7 +369,7 @@ void inference(
                 }
 
                 std::sort(candidates.begin(), candidates.end(), std::greater<>());
-                candidates.resize(std::min<std::size_t>(candidates.size(), CONTEXT_AWARE_THRESHOLD));
+                candidates.resize(std::min<std::size_t>(candidates.size(), argparse.max_candidates_per_token));
 
                 double max_fitness = std::numeric_limits<double>::min();
                 uint32_t result = static_cast<uint32_t>(-1);
@@ -381,8 +377,8 @@ void inference(
                 {
                     std::string word = reversed_token_map[index];
                     auto d = damerau_levenshtein(lowercase[i], word);
-                    auto fitness = static_cast<double>(score) * std::pow(CONTEXT_LOSS_FACTOR, d);
-                    if (d < EDIT_DISTANCE_THRESHOLD && fitness > max_fitness)
+                    auto fitness = static_cast<double>(score) * std::pow(argparse.edit_penalty_factor, d);
+                    if (d <= argparse.edit_distance_threshold && fitness > max_fitness)
                     {
                         max_fitness = fitness;
                         result = index;
@@ -509,6 +505,7 @@ int main(int argc, char **argv)
 {
     std::ios_base::sync_with_stdio(false);
     Namespace argparse(argc, argv);
+    std::cout << "Command line arguments: " << argparse << std::endl;
 
     std::unordered_map<std::string, uint32_t> token_map;
     std::vector<std::string> reversed_token_map;
