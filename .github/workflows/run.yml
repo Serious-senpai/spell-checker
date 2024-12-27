@@ -9,6 +9,11 @@ jobs:
   run:
     name: Run executable
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        max-candidates-per-token: [1000]
+        edit-penalty-factor: [0.01]
 
     steps:
       - name: Checkout repository
@@ -38,7 +43,10 @@ jobs:
 
       - name: Run executable with piped corpus
         timeout-minutes: 330
-        run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/main.exe --corpus -
+        run: |
+          unzip -p data/corpus.zip corpus.txt | \
+          pv -B 128M | \
+          build/main.exe --corpus - --max-candidates-per-token ${{ matrix.max-candidates-per-token }} --edit-penalty-factor ${{ matrix.edit-penalty-factor }}
 
       - name: Benchmark solution
         run: python scripts/benchmark.py
@@ -47,7 +55,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: results
+          name: results-${{ matrix.max-candidates-per-token }}-${{ matrix.edit-penalty-factor }}
           path: |
             data/frequency.txt
             data/output.txt

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -29,7 +30,7 @@ def benchmark(path: Path) -> float:
                     matched += correct == token
 
     match_percentage = 100 * matched / total
-    print(f"[{path.resolve()}] Matched {matched}/{total} tokens ({match_percentage:.2f}%)")
+    print(f"[{path.resolve()}] Matched {matched}/{total} tokens ({match_percentage:.3f}%)")
     return match_percentage
 
 
@@ -39,6 +40,10 @@ delta = after - before
 
 just_fix_windows_console()
 if delta < 0:
-    print(f"{Fore.RED}{delta:.2f}%{Style.RESET_ALL}")
+    print(f"{Fore.RED}{delta:.3f}%{Style.RESET_ALL}")
 else:
-    print(f"{Fore.GREEN}+{delta:.2f}%{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}+{delta:.3f}%{Style.RESET_ALL}")
+
+
+if os.getenv("CI"):
+    print(f"::notice::{after:.3f}% (improved {delta:.3f}%)")
