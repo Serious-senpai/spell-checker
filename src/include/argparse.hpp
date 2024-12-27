@@ -22,7 +22,7 @@ public:
     bool interactive = false;
     std::size_t max_candidates_per_token = 1000;
     std::size_t edit_distance_threshold = 2;
-    double edit_penalty_factor = 0.05;
+    double edit_penalty_factor = 0.01;
 
     Namespace(int argc, char **argv)
     {

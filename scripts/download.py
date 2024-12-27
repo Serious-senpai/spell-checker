@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 import aiohttp
@@ -28,6 +29,10 @@ options.add_argument("--headless")
 
 driver = webdriver.Firefox(options=options)
 driver.get(MEDIAFIRE_URL)
+
+# Possible cloudflare protection
+time.sleep(5)
+
 driver.get_full_page_screenshot_as_file(str(ROOT / "data" / "screenshot.png"))
 
 button = driver.find_element(By.ID, "downloadButton")
