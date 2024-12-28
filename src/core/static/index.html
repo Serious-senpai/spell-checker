@@ -54,14 +54,14 @@
     <script>
         document.getElementById("submitButton").addEventListener(
             "click",
-            function () {
+            async function () {
                 const sourceText = document.getElementById("sourceText").value;
 
                 // Create form data
                 const formData = new URLSearchParams();
                 formData.append("text", sourceText);
 
-                fetch(
+                const response = await fetch(
                     "/api",
                     {
                         method: "POST",
@@ -70,12 +70,8 @@
                         },
                         body: formData.toString(),
                     },
-                ).then(
-                    data => {
-                        // Update target textarea with API response
-                        document.getElementById("targetText").value = response.text();
-                    },
                 );
+                document.getElementById("targetText").value = await response.text();
             },
         );
     </script>
