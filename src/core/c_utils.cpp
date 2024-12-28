@@ -246,27 +246,52 @@ std::string inference(
                     }
                 }
 
-                std::unordered_map<uint32_t, unsigned long long> scores;
-                for (const auto &[candidate, score] : left)
+                if (left.empty() && right.empty())
                 {
-                    const auto x = static_cast<unsigned long long>(score);
-                    const auto y = static_cast<unsigned long long>(right[candidate]);
-                    scores[candidate] = x + y + utils::sqrt(x * y);
+                    continue;
                 }
-                for (const auto &[candidate, score] : right)
+
+                double total_left = std::accumulate(
+                    left.begin(), left.end(),
+                    static_cast<unsigned int>(0),
+                    [](unsigned int sum, const std::pair<uint32_t, unsigned int> &p)
+                    { return sum + p.second; });
+                double total_right = std::accumulate(
+                    right.begin(), right.end(),
+                    static_cast<unsigned int>(0),
+                    [](unsigned int sum, const std::pair<uint32_t, unsigned int> &p)
+                    { return sum + p.second; });
+
+                std::unordered_map<uint32_t, double> scores;
+                if (left.empty())
                 {
-                    if (left.find(candidate) == left.end())
+                    for (const auto &[candidate, score] : right)
                     {
-                        scores[candidate] = score;
+                        scores[candidate] = static_cast<double>(score) / total_right;
+                    }
+                }
+                else if (right.empty())
+                {
+                    for (const auto &[candidate, score] : left)
+                    {
+                        scores[candidate] = static_cast<double>(score) / total_left;
+                    }
+                }
+                else
+                {
+                    for (const auto &[candidate, score] : left)
+                    {
+                        const auto x = static_cast<double>(score) / total_left;
+                        const auto y = static_cast<double>(right[candidate]) / total_right;
+                        scores[candidate] = utils::sqrt(x * y);
                     }
                 }
 
-                std::vector<std::pair<unsigned long long, uint32_t>> candidates;
+                std::vector<std::pair<double, uint32_t>> candidates;
                 for (const auto &[index, score] : scores)
                 {
                     candidates.emplace_back(score, index);
                 }
-
                 std::sort(candidates.begin(), candidates.end(), std::greater<>());
                 candidates.resize(std::min(candidates.size(), max_candidates_per_token));
 
@@ -277,6 +302,7 @@ std::string inference(
                     std::string word = reversed_token_map[index];
                     auto d = damerau_levenshtein(lowercase[i], word);
                     auto fitness = static_cast<double>(score) * std::pow(edit_penalty_factor, d);
+                    // std::cerr << "Comparing \"" << lowercase[i] << "\" and \"" << word << "\" with d = " << d << ", score = " << score << std::endl;                    if (d <= edit_distance_threshold && fitness > max_fitness)
                     if (d <= edit_distance_threshold && fitness > max_fitness)
                     {
                         max_fitness = fitness;
