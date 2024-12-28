@@ -41,6 +41,34 @@
         button:hover {
             background-color: #0056b3;
         }
+
+        .config-container {
+            display: flex;
+            flex-direction: column;
+            margin: 20px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .config-item label {
+            margin-right: 10px;
+            width: 250px;
+            display: inline-block;
+        }
+
+        .config-item input[type="number"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            width: 100px;
+        }
     </style>
 </head>
 
@@ -49,6 +77,22 @@
         <textarea id="sourceText" placeholder="Enter text here..."></textarea>
         <textarea id="targetText" disabled></textarea>
     </div>
+
+    <div class="config-container">
+        <div class="config-item">
+            <label for="editDistanceThreshold">Edit distance threshold:</label>
+            <input type="number" id="editDistanceThreshold" min="0" max="5" value="2">
+        </div>
+        <div class="config-item">
+            <label for="maxCandidates">Maximum number of candidates per token:</label>
+            <input type="number" id="maxCandidates" min="10" max="1000" value="1000">
+        </div>
+        <div class="config-item">
+            <label for="editPenaltyFactor">Edit penalty factor:</label>
+            <input type="number" id="editPenaltyFactor" min="0" max="1" step="0.01" value="0.1">
+        </div>
+    </div>
+
     <button id="submitButton">Submit</button>
 
     <script>
@@ -56,10 +100,16 @@
             "click",
             async function () {
                 const sourceText = document.getElementById("sourceText").value;
+                const editDistanceThreshold = document.getElementById("editDistanceThreshold").value;
+                const maxCandidates = document.getElementById("maxCandidates").value;
+                const editPenaltyFactor = document.getElementById("editPenaltyFactor").value;
 
                 // Create form data
                 const formData = new URLSearchParams();
                 formData.append("text", sourceText);
+                formData.append("edit_distance_threshold", editDistanceThreshold);
+                formData.append("max_candidates_per_token", maxCandidates);
+                formData.append("edit_penalty_factor", editPenaltyFactor);
 
                 const response = await fetch(
                     "/api",

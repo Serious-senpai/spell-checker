@@ -410,7 +410,7 @@ PYBIND11_MODULE(c_utils, m)
         "inference", &inference,
         py::arg("input"),
         py::kw_only(),
-        py::arg("edit_distance_threshold") = 2,
-        py::arg("max_candidates_per_token") = 1000,
-        py::arg("edit_penalty_factor") = 0.01);
+        py::arg("edit_distance_threshold"),
+        py::arg("max_candidates_per_token"),
+        py::arg("edit_penalty_factor"));
 }

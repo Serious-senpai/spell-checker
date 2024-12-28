@@ -21,6 +21,9 @@ class Namespace(argparse.Namespace):
         option: Literal["server", "input", "benchmark"]
         frequency_path: Path
         wordlist_path: Path
+        edit_distance_threshold: int
+        max_candidates_per_token: int
+        edit_penalty_factor: float
         verbose: bool
 
 
@@ -41,7 +44,14 @@ def run_input(namespace: Namespace) -> None:
     while True:
         try:
             text = input("Enter text (Ctrl-C to exit)>")
-            print(inference(text))
+            print(
+                inference(
+                    text,
+                    edit_distance_threshold=namespace.edit_distance_threshold,
+                    max_candidates_per_token=namespace.max_candidates_per_token,
+                    edit_penalty_factor=namespace.edit_penalty_factor,
+                ),
+            )
 
         except (EOFError, KeyboardInterrupt):
             break
@@ -62,7 +72,16 @@ def run_benchmark(namespace: Namespace) -> None:
                     total += 1
                     before_matched += correct == token
 
-                for correct, token in zip(benchmark_token_generator(data), inference(data["text"]).split(), strict=True):
+                for correct, token in zip(
+                    benchmark_token_generator(data),
+                    inference(
+                        data["text"],
+                        edit_distance_threshold=namespace.edit_distance_threshold,
+                        max_candidates_per_token=namespace.max_candidates_per_token,
+                        edit_penalty_factor=namespace.edit_penalty_factor,
+                    ).split(),
+                    strict=True,
+                ):
                     after_matched += correct == token
 
         except KeyboardInterrupt:
@@ -92,6 +111,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument("-o", "--option", choices=["server", "input", "benchmark"], default="server", help="Start a spell-checking server, read from stdin, or run benchmarking")
 parser.add_argument("-f", "--frequency-path", type=Path, default=ROOT / "data" / "frequency.txt", help="Path to the frequency file")
 parser.add_argument("-w", "--wordlist-path", type=Path, default=ROOT / "data" / "wordlist.txt", help="Path to the wordlist file")
+parser.add_argument("--edit-distance-threshold", type=int, default=2, help="Edit distance threshold")
+parser.add_argument("--max-candidates-per-token", type=int, default=1000, help="Maximum number of candidates per token")
+parser.add_argument("--edit-penalty-factor", type=float, default=0.1, help="Edit penalty factor")
 parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
 
 
