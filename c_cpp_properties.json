@@ -3,6 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
+                "${workspaceFolder}/extern/pybind11/include",
                 "${workspaceFolder}/src/include",
                 "${default}"
             ],

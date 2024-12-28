@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import List, TypedDict
 
 
-__all__ = ("Annotation", "Data", "ROOT")
+__all__ = ("Annotation", "Data")
 
 
 class Annotation(TypedDict):
@@ -17,6 +16,3 @@ class Annotation(TypedDict):
 class Data(TypedDict):
     annotations: List[Annotation]
     text: str
-
-
-ROOT = Path(__file__).parent.parent.parent.resolve()

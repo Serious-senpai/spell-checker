@@ -38,18 +38,12 @@ jobs:
       - name: Compile executable
         run: scripts/build.sh
 
-      - name: Generate input file
-        run: python scripts/input.py
-
       - name: Run executable with piped corpus
         timeout-minutes: 330
-        run: |
-          unzip -p data/corpus.zip corpus.txt | \
-          pv -B 128M | \
-          build/main.exe --corpus - --max-candidates-per-token ${{ matrix.max-candidates-per-token }} --edit-penalty-factor ${{ matrix.edit-penalty-factor }}
+        run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/learn.exe --corpus -
 
       - name: Benchmark solution
-        run: python scripts/benchmark.py
+        run: python src/main.py benchmark
 
       - name: Upload results
         if: ${{ always() }}
@@ -58,5 +52,4 @@ jobs:
           name: results-${{ matrix.max-candidates-per-token }}-${{ matrix.edit-penalty-factor }}
           path: |
             data/frequency.txt
-            data/output.txt
             data/screenshot.png

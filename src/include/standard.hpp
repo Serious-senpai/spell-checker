@@ -31,7 +31,7 @@
 #endif
 
 #if defined(WIN32)
-#define WIN32_LEAN_AND_MEAN // otherwise "rad1" macro in dlgs.h clashes with "rad1" variable in ALGLIB optimization.h
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #elif defined(__linux__)
 #include <unistd.h>
