@@ -13,7 +13,7 @@ from colorama import Fore, Style, just_fix_windows_console
 from tqdm import tqdm
 
 from models import Data
-from core import app, inference, initialize
+from core import Application, inference, initialize
 
 
 class Namespace(argparse.Namespace):
@@ -37,6 +37,12 @@ def benchmark_token_generator(data: Data) -> Iterable[str]:
 
 def run_server(namespace: Namespace) -> None:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+    app = Application(
+        edit_distance_threshold=namespace.edit_distance_threshold,
+        max_candidates_per_token=namespace.max_candidates_per_token,
+        edit_penalty_factor=namespace.edit_penalty_factor,
+    )
     web.run_app(app)
 
 
@@ -67,6 +73,14 @@ def run_benchmark(namespace: Namespace) -> None:
 
         try:
             for line in iterable:
+                if isinstance(iterable, tqdm):
+                    if before_matched < after_matched:
+                        color = Fore.GREEN
+                    else:
+                        color = Fore.RED
+
+                    iterable.set_description_str(f"{dataset} ({color}{after_matched}{Style.RESET_ALL}/{before_matched})")
+
                 data: Data = json.loads(line)
                 for correct, token in zip(benchmark_token_generator(data), data["text"].split(), strict=True):
                     total += 1
@@ -113,7 +127,7 @@ parser.add_argument("-f", "--frequency-path", type=Path, default=ROOT / "data" /
 parser.add_argument("-w", "--wordlist-path", type=Path, default=ROOT / "data" / "wordlist.txt", help="Path to the wordlist file")
 parser.add_argument("--edit-distance-threshold", type=int, default=2, help="Edit distance threshold")
 parser.add_argument("--max-candidates-per-token", type=int, default=1000, help="Maximum number of candidates per token")
-parser.add_argument("--edit-penalty-factor", type=float, default=0.1, help="Edit penalty factor")
+parser.add_argument("--edit-penalty-factor", type=float, default=0.01, help="Edit penalty factor")
 parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
 
 
