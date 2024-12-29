@@ -145,11 +145,6 @@ int main(int argc, char **argv)
             process_tokens();
         }
 
-        if (frequency.size() >= 100000)
-        {
-            break;
-        }
-
         if (argparse.verbose && !(++counter & 0xFFFFF))
         {
             const auto size = input_ptr->tellg();

@@ -26,16 +26,7 @@
 #include <unordered_set>
 #include <vector>
 
-#if defined(_WIN32) && !defined(WIN32)
-#define WIN32
-#endif
-
-#if defined(WIN32)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#elif defined(__linux__)
 #include <unistd.h>
-#endif
 
 #include <cxxabi.h>
 #include <sys/stat.h>

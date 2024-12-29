@@ -43,7 +43,7 @@ jobs:
         run: unzip -p data/corpus.zip corpus.txt | pv -B 128M | build/learn.exe --corpus -
 
       - name: Benchmark solution
-        run: python src/main.py benchmark
+        run: python src/main.py -o benchmark
 
       - name: Upload results
         if: ${{ always() }}

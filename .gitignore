@@ -4,8 +4,5 @@
 .venv/
 .vscode/
 build/
-data/
 
 run.bat
-
-!data/wordlist.txt
